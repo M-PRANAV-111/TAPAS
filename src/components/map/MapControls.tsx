@@ -19,6 +19,7 @@ export function MapControls({
   onDateChange,
   className,
 }: MapControlsProps) {
+  dates = dates.includes(selectedDate) ? dates : [...dates, selectedDate].sort()
   const index = Math.max(0, dates.indexOf(selectedDate))
 
   return (
@@ -55,7 +56,7 @@ export function MapControls({
                 aria-pressed={active}
                 data-testid={`day-tick-${i}`}
                 className={cn(
-                  'flex-1 rounded px-1 py-1 text-center text-[11px] leading-tight transition-colors',
+                  'min-h-11 flex-1 rounded px-1 py-1 text-center text-[11px] leading-tight transition-colors',
                   active
                     ? 'bg-secondary font-semibold text-foreground'
                     : 'tapas-subtext hover:bg-secondary/60',

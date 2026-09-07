@@ -1,4 +1,5 @@
 'use client'
+import { DataStatus } from '@/components/data/DataStatus'
 
 import { AlertTriangle, Moon } from 'lucide-react'
 
@@ -26,8 +27,8 @@ export function RiskRanking({
   limit = 10,
   className,
 }: RiskRankingProps) {
-  const { data, isPending, isError } = useRiskRanking(date, limit)
-  const wards = data?.wards ?? []
+  const { data, isLoading: isPending, isError, isFetching } = useRiskRanking(date, limit)
+  const wards = data && data.date === date ? data.wards.filter((ward) => ward.date === date) : []
 
   return (
     <section
@@ -37,6 +38,7 @@ export function RiskRanking({
       <header className="px-3 pb-2 pt-3">
         <h2 className="text-sm font-semibold">Highest risk wards</h2>
         <p className="text-xs tapas-subtext">{longDate(date)}</p>
+        <DataStatus label="Ranking" provenance={data?.provenance} refreshing={isFetching} />
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
@@ -78,7 +80,7 @@ export function RiskRanking({
                       <span className="text-xs font-semibold tapas-subtext">
                         {index + 1}.
                       </span>
-                      <span className="truncate text-sm font-medium">
+                      <span className="break-words text-sm font-medium">
                         {ward.ward_name}
                       </span>
                     </span>
@@ -90,7 +92,7 @@ export function RiskRanking({
                     ) : null}
                   </div>
 
-                  <div className="mt-1.5 flex items-center justify-between gap-2">
+                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
                     <RiskBadge level={ward.risk_level} size="sm" compact />
                     <span className="text-[11px] tapas-subtext">
                       {formatTemp(ward.utci_max)} UTCI

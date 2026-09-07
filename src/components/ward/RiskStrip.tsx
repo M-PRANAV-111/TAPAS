@@ -3,8 +3,9 @@
 import { Moon } from 'lucide-react'
 
 import { RiskBadge } from '@/components/risk/RiskBadge'
+import { DeathsInline } from '@/components/risk/DeathsDisplay'
 import type { WardRisk } from '@/lib/types'
-import { cn, dayLabel } from '@/lib/utils'
+import { cn, shortDate } from '@/lib/utils'
 
 export interface RiskStripProps {
   days: WardRisk[]
@@ -33,13 +34,11 @@ export function RiskStrip({
 
   return (
     <div
-      className={cn('grid gap-1.5', className)}
-      style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }}
+      className={cn('flex gap-1.5 overflow-x-auto pb-2', className)}
       data-testid="risk-strip"
     >
-      {days.map((day, index) => {
+      {[...days].sort((a, b) => a.date.localeCompare(b.date)).map((day) => {
         const selected = day.date === selectedDate
-        const noDeaths = day.excess_deaths < 0.5
 
         return (
           <button
@@ -47,16 +46,16 @@ export function RiskStrip({
             type="button"
             onClick={() => onDaySelect(day.date)}
             aria-pressed={selected}
-            aria-label={`${dayLabel(day.date, index)}, level ${day.risk_level}`}
+            aria-label={`${shortDate(day.date)}, ${day.risk_level === null ? 'risk unavailable' : `level ${day.risk_level}`}`}
             className={cn(
-              'rounded-md border p-1.5 text-center transition-all',
+              'min-w-[7rem] flex-1 rounded-md border p-1.5 text-center transition-all',
               selected
                 ? 'border-foreground/40 bg-secondary shadow-sm'
                 : 'border-transparent hover:bg-secondary/60',
             )}
           >
             <span className="flex items-center justify-center gap-1 text-[11px] font-medium tapas-subtext">
-              {dayLabel(day.date, index)}
+              {shortDate(day.date)}
               {day.hot_night ? (
                 <Moon
                   className="h-3 w-3 text-[var(--risk-4)]"
@@ -73,13 +72,7 @@ export function RiskStrip({
               className="mt-1 py-1.5"
             />
 
-            <span className="mt-1 block text-[10px] leading-tight tapas-subtext">
-              {noDeaths
-                ? 'no excess'
-                : `~${Math.round(day.excess_deaths)} ${
-                    Math.round(day.excess_deaths) === 1 ? 'death' : 'deaths'
-                  }`}
-            </span>
+            <DeathsInline value={day.excess_deaths} low={day.excess_deaths_low} high={day.excess_deaths_high} className="mt-1 block text-[10px] leading-tight" />
           </button>
         )
       })}

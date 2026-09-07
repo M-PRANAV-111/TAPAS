@@ -6,6 +6,12 @@ import { RISK_COLORS, RISK_LABELS } from '@/lib/constants'
 import type { RiskLevel } from '@/lib/types'
 
 describe('RiskBadge', () => {
+  it('does not classify missing risk as low', () => {
+    render(<RiskBadge level={null} />)
+    expect(screen.getByTestId('risk-badge')).toHaveTextContent('Risk unavailable')
+    expect(screen.getByTestId('risk-badge')).toHaveAttribute('data-level', 'unknown')
+    expect(screen.getByTestId('risk-badge')).not.toHaveStyle({ backgroundColor: RISK_COLORS[1] })
+  })
   it('renders level 1 in the low-risk green', () => {
     render(<RiskBadge level={1} />)
 

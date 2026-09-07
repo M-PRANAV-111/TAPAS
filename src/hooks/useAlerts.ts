@@ -1,28 +1,10 @@
-'use client'
-
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
-
+﻿'use client'
+import { useQuery } from '@tanstack/react-query'
+import { useLocation } from '@/components/providers/LocationProvider'
+import { locationKey } from '@/lib/location'
 import { api } from '@/lib/api'
-
-/**
- * Active alerts at or above `level`. Alerts change on the operational cycle,
- * not by the minute, so a 10-minute stale window is plenty.
- */
-export function useAlerts(level = 4, limit = 50) {
-  return useQuery({
-    queryKey: ['alerts', level, limit],
-    queryFn: () => api.alerts(level, limit),
-    staleTime: 10 * 60 * 1000,
-    gcTime: 24 * 60 * 60 * 1000,
-    placeholderData: keepPreviousData,
-  })
+export function useAlerts(level = 1, limit = 50) {
+  const {location, selectedDate} = useLocation()
+  return useQuery({ queryKey: ['alerts', locationKey(location), selectedDate, level, limit], queryFn: ({signal}) => api.alerts(level, limit, location!, selectedDate, signal), enabled: !!location, staleTime: 600_000, gcTime: 86400_000, retry: false })
 }
-
-export function useHindcast() {
-  return useQuery({
-    queryKey: ['hindcast'],
-    queryFn: () => api.hindcast(),
-    staleTime: Infinity,
-    gcTime: 24 * 60 * 60 * 1000,
-  })
-}
+export function useHindcast() { return useQuery({queryKey: ['hindcast'], queryFn: () => api.hindcast(), retry: false, staleTime: Infinity}) }

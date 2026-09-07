@@ -6,17 +6,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/** YYYY-MM-DD in local time — the format every TAPAS endpoint expects. */
+/** YYYY-MM-DD in India Standard Time — the format every TAPAS endpoint expects. */
 export function toIsoDate(date: Date): string {
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date)
 }
 
 export function addDays(date: Date, days: number): Date {
   const next = new Date(date)
-  next.setDate(next.getDate() + days)
+  next.setUTCDate(next.getUTCDate() + days)
   return next
 }
 
@@ -30,22 +27,23 @@ export function forecastDates(days = 5, from = new Date()): string[] {
 }
 
 export function parseIsoDate(iso: string): Date {
-  const [y, m, d] = iso.split('-').map(Number)
-  return new Date(y, (m ?? 1) - 1, d ?? 1)
+  return new Date(`${iso}T12:00:00+05:30`)
 }
 
 /** "Today", then "Tue", "Wed"... */
-export function dayLabel(iso: string, index: number): string {
-  if (index === 0) return 'Today'
+export function dayLabel(iso: string, _index?: number): string {
+  void _index
+  if (iso === todayIso()) return 'Today'
   const date = parseIsoDate(iso)
   if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleDateString('en-IN', { weekday: 'short' })
+  return date.toLocaleDateString('en-IN', { weekday: 'short', timeZone: 'Asia/Kolkata' })
 }
 
 export function longDate(iso: string): string {
   const date = parseIsoDate(iso)
   if (Number.isNaN(date.getTime())) return iso
   return date.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
     weekday: 'long',
     day: 'numeric',
     month: 'short',
@@ -56,7 +54,7 @@ export function longDate(iso: string): string {
 export function shortDate(iso: string): string {
   const date = parseIsoDate(iso)
   if (Number.isNaN(date.getTime())) return iso
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })
 }
 
 export function formatDateTime(iso: string | undefined | null): string {
@@ -64,6 +62,8 @@ export function formatDateTime(iso: string | undefined | null): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
   return d.toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    timeZoneName: 'short',
     day: 'numeric',
     month: 'short',
     hour: '2-digit',
@@ -75,7 +75,7 @@ export function formatClock(iso: string | undefined | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })
 }
 
 /** Whole days elapsed since an ISO date, or null if unparseable/absent. */
@@ -90,18 +90,16 @@ export function isRiskLevel(value: unknown): value is RiskLevel {
   return value === 1 || value === 2 || value === 3 || value === 4 || value === 5
 }
 
-/** Coerce anything the backend sends into a valid level rather than crashing. */
-export function clampRiskLevel(value: unknown): RiskLevel {
-  const n = Math.round(Number(value))
-  if (!Number.isFinite(n)) return 1
-  return Math.min(5, Math.max(1, n)) as RiskLevel
+/** Accept only a supplied valid numeric level; missing or malformed values stay unknown. */
+export function clampRiskLevel(value: unknown): RiskLevel | null {
+  return isRiskLevel(value) ? value : null
 }
 
 export function formatTemp(
   value: number | undefined | null,
   digits = 1,
 ): string {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
     return '—'
   }
   return `${Number(value).toFixed(digits)}°C`
@@ -110,17 +108,4 @@ export function formatTemp(
 /** "05:00" from an hour index. */
 export function hourLabel(hour: number): string {
   return `${String(hour).padStart(2, '0')}:00`
-}
-
-/**
- * Deterministic 32-bit hash. Used to give each ward a stable pseudo-random
- * offset in the demo data so the map is not uniformly coloured.
- */
-export function hashString(value: string): number {
-  let h = 2166136261
-  for (let i = 0; i < value.length; i += 1) {
-    h ^= value.charCodeAt(i)
-    h = Math.imul(h, 16777619)
-  }
-  return Math.abs(h)
 }

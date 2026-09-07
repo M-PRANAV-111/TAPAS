@@ -1,6 +1,6 @@
 import { RISK_COLORS, RISK_LABELS, RISK_TEXT_COLORS } from '@/lib/constants'
 import type { RiskLevel } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { cn, isRiskLevel } from '@/lib/utils'
 
 export type RiskBadgeSize = 'sm' | 'md' | 'lg'
 
@@ -11,7 +11,7 @@ const SIZES: Record<RiskBadgeSize, string> = {
 }
 
 export interface RiskBadgeProps {
-  level: RiskLevel
+  level: RiskLevel | null | undefined
   size?: RiskBadgeSize
   /** Render only "Level N", for tight columns. */
   compact?: boolean
@@ -32,13 +32,14 @@ export function RiskBadge({
   block = false,
   className,
 }: RiskBadgeProps) {
-  const label = RISK_LABELS[level]
+  const known = isRiskLevel(level)
+  const label = known ? RISK_LABELS[level] : 'Unavailable'
 
   return (
     <span
       data-testid="risk-badge"
-      data-level={level}
-      aria-label={`Risk level ${level}, ${label}`}
+      data-level={known ? level : 'unknown'}
+      aria-label={known ? `Risk level ${level}, ${label}` : 'Risk unavailable'}
       className={cn(
         'inline-flex items-center justify-center rounded-full font-semibold leading-none tracking-tight',
         SIZES[size],
@@ -46,11 +47,11 @@ export function RiskBadge({
         className,
       )}
       style={{
-        backgroundColor: RISK_COLORS[level],
-        color: RISK_TEXT_COLORS[level],
+        backgroundColor: known ? RISK_COLORS[level] : '#E5E7EB',
+        color: known ? RISK_TEXT_COLORS[level] : '#374151',
       }}
     >
-      {compact ? `Level ${level}` : `Level ${level} — ${label}`}
+      {known ? compact ? `Level ${level}` : `Level ${level} — ${label}` : 'Risk unavailable'}
     </span>
   )
 }

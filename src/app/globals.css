@@ -49,6 +49,9 @@
   }
 
   body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
     background-color: var(--bg);
     color: var(--text);
     font-family: var(--font);
@@ -77,6 +80,8 @@
 
 /* MapLibre popups inherit the app's type rather than the library default. */
 .maplibregl-popup-content {
+  max-width: min(280px, 75vw);
+  overflow-wrap: anywhere;
   font-family: var(--font);
   padding: 0.5rem 0.625rem;
   border-radius: 0.5rem;
@@ -110,3 +115,10 @@
 .print-only {
   display: none;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Map navigation remains usable with one thumb. */
+.maplibregl-ctrl-group button { width: 44px; height: 44px; }

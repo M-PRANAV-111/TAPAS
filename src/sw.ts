@@ -1,25 +1,8 @@
-/// <reference lib="webworker" />
+﻿/// <reference lib="webworker" />
 
-/**
- * TAPAS service worker.
- *
- * Priorities, in order:
- *   1. The app shell must open with no network at all.
- *   2. The last good forecast must survive a dead connection.
- *   3. Stale data must never be presented as fresh — the UI reads
- *      `navigator.onLine` and the cache timestamp and says so.
- */
-
-import { defaultCache } from '@serwist/next/worker'
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist'
-import {
-  CacheFirst,
-  CacheableResponsePlugin,
-  ExpirationPlugin,
-  NetworkFirst,
-  Serwist,
-  StaleWhileRevalidate,
-} from 'serwist'
+import { NetworkOnly, Serwist } from 'serwist'
+import { offlineShellUrl } from './lib/pwa'
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -29,70 +12,56 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope
 
-const TWO_HOURS = 2 * 60 * 60
-
-const serwist = new Serwist({
-  // App shell: every page, JS chunk and stylesheet, precached at install and
-  // then served cache-first.
+/**
+ * Public shell/assets only. The API adapter owns bounded, validated data
+ * persistence and labels cached results with their original provenance.
+ */
+const serwist: Serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: true,
+  precacheOptions: { cleanupOutdatedCaches: true },
+  skipWaiting: false,
   clientsClaim: true,
-  navigationPreload: true,
   runtimeCaching: [
     {
-      // Ward polygons never change between forecast runs.
-      matcher: ({ url }) => url.pathname === '/ward-hyderabad.geojson',
-      handler: new CacheFirst({
-        cacheName: 'tapas-ward-geometry',
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 4 }),
-        ],
+      matcher: ({ request, sameOrigin }) => sameOrigin && request.mode === 'navigate',
+      handler: new NetworkOnly({
+        networkTimeoutSeconds: 5,
+        plugins: [{
+          handlerDidError: async ({ request }): Promise<Response | undefined> => {
+            const shell = offlineShellUrl(new URL(request.url).pathname)
+            const saved = (await serwist.matchPrecache(shell)) ?? (await serwist.matchPrecache('/offline.html'))
+            if (!saved) return undefined
+            // Browser onLine can remain true when a worker restores an offline
+            // document. Mark the restored HTML explicitly, without altering URL
+            // state or treating any cached scientific value as current.
+            const html = (await saved.text()).replace('<head>', '<head><meta name="tapas-offline-shell" content="true">')
+            const headers = new Headers(saved.headers)
+            headers.delete('content-length')
+            return new Response(html, {status: 200, headers})
+          },
+        }],
       }),
     },
     {
-      // The choropleth payload. Shown immediately from cache, refreshed in the
-      // background, and expired after two hours so a stale day cannot linger.
-      matcher: ({ url }) => url.pathname.startsWith('/api/risk/map'),
-      handler: new StaleWhileRevalidate({
-        cacheName: 'tapas-risk-map',
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({ maxEntries: 32, maxAgeSeconds: TWO_HOURS }),
-        ],
-      }),
+      // APIs, geocoders, POIs, tiles, and Next RSC requests stay outside SW
+      // storage. No broad runtime cache can disguise stale safety data.
+      matcher: () => true,
+      handler: new NetworkOnly({ networkTimeoutSeconds: 10 }),
     },
-    {
-      matcher: ({ url }) => url.hostname.endsWith('tile.openstreetmap.org'),
-      handler: new CacheFirst({
-        cacheName: 'tapas-map-tiles',
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({
-            maxEntries: 500,
-            maxAgeSeconds: 30 * 24 * 60 * 60,
-            purgeOnQuotaError: true,
-          }),
-        ],
-      }),
-    },
-    {
-      // Every other TAPAS endpoint: fresh when possible, cached copy when not.
-      matcher: ({ url }) => url.pathname.startsWith('/api/'),
-      handler: new NetworkFirst({
-        cacheName: 'tapas-api',
-        networkTimeoutSeconds: 6,
-        plugins: [
-          new CacheableResponsePlugin({ statuses: [0, 200] }),
-          new ExpirationPlugin({
-            maxEntries: 128,
-            maxAgeSeconds: 24 * 60 * 60,
-          }),
-        ],
-      }),
-    },
-    ...defaultCache,
   ],
+})
+
+self.addEventListener('activate', (event) => {
+  // Remove only caches used by the previous TAPAS worker. Some held generated
+  // responses and must not reappear after this data-integrity upgrade.
+  const legacy = new Set([
+    'tapas-ward-geometry', 'tapas-risk-map', 'tapas-api', 'tapas-map-tiles',
+    'apis', 'cross-origin', 'others', 'static-data-assets', 'next-data',
+    'pages', 'pages-rsc', 'pages-rsc-prefetch',
+  ])
+  event.waitUntil(caches.keys().then((names) =>
+    Promise.all(names.filter((name) => legacy.has(name)).map((name) => caches.delete(name))),
+  ))
 })
 
 serwist.addEventListeners()

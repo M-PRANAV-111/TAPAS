@@ -14,3 +14,4 @@ tsconfig.tsbuildinfo
 public/sw.js
 public/sw.js.map
 public/swe-worker-*.js
+tsconfig.sw.tsbuildinfo

@@ -12,13 +12,17 @@ export function useOnlineStatus(): boolean {
   const [online, setOnline] = useState(true)
 
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine)
+    const update = () => setOnline(navigator.onLine && !document.querySelector('meta[name="tapas-offline-shell"]'))
+    const reconnected = () => {
+      document.querySelector('meta[name="tapas-offline-shell"]')?.remove()
+      update()
+    }
     update()
 
-    window.addEventListener('online', update)
+    window.addEventListener('online', reconnected)
     window.addEventListener('offline', update)
     return () => {
-      window.removeEventListener('online', update)
+      window.removeEventListener('online', reconnected)
       window.removeEventListener('offline', update)
     }
   }, [])

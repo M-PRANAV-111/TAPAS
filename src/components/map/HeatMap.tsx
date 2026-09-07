@@ -1,223 +1,73 @@
-'use client'
-
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import maplibregl, {
-  type Map as MapLibreMap,
-  type StyleSpecification,
-} from 'maplibre-gl'
+﻿'use client'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import maplibregl, {type Map as MapLibreMap, type StyleSpecification, type GeoJSONSource, type MapLayerMouseEvent} from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-
+import { ThermalLayer } from '@/components/map/ThermalLayer'
 import { WardLayer, bboxOf } from '@/components/map/WardLayer'
 import { RISK_LABELS } from '@/lib/constants'
+import { locationKey, type SelectedLocation } from '@/lib/location'
+import type { SafetyResource } from '@/lib/resources'
 import type { WardCollection, WardRisk } from '@/lib/types'
 import { cn } from '@/lib/utils'
-
-/**
- * Raster OSM. No key, no billing, no quota to explain to a municipal IT
- * department. Swap the URL here for a self-hosted tile server on deployment.
- */
-const BASE_STYLE: StyleSpecification = {
-  version: 8,
-  sources: {
-    osm: {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      maxzoom: 19,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    },
-  },
-  layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-}
-
-const FIT_PADDING = 40
-
-export interface HeatMapProps {
-  geojson: WardCollection | undefined
-  /** Risk rows for the selected day. */
-  wards: WardRisk[]
-  selectedWardId: string | null
-  onWardSelect: (wardId: string) => void
-  /** Offline with nothing cached — the map greys out instead of lying. */
-  unavailable?: boolean
-  className?: string
-}
-
-export default function HeatMap({
-  geojson,
-  wards,
-  selectedWardId,
-  onWardSelect,
-  unavailable = false,
-  className,
-}: HeatMapProps) {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const mapRef = useRef<MapLibreMap | null>(null)
-  const [map, setMap] = useState<MapLibreMap | null>(null)
-  const [renderError, setRenderError] = useState<string | null>(null)
-  const hasFitRef = useRef(false)
-
-  // Read inside callbacks that must not re-subscribe when the data changes.
-  const geojsonRef = useRef(geojson)
-  geojsonRef.current = geojson
-
-  const risks = useMemo(
-    () => new Map(wards.map((w) => [w.ward_id, w])),
-    [wards],
-  )
-
-  // Create the map once.
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
-
+const EMPTY: WardCollection = {type:'FeatureCollection',features:[]}
+const BASE_STYLE: StyleSpecification = {version:8,sources:{osm:{type:'raster',tiles:[process.env.NEXT_PUBLIC_MAP_TILE_URL || 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,maxzoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}},layers:[{id:'osm',type:'raster',source:'osm'}]}
+export interface HeatMapProps {geojson?:WardCollection;wards:WardRisk[];selectedWardId:string|null;onWardSelect:(id:string)=>void;location:SelectedLocation|null;resources?:SafetyResource[];selectedResourceId?:string|null;onResourceSelect?:(resource:SafetyResource)=>void;className?:string;selectedDate:string}
+export default function HeatMap({geojson,wards,selectedWardId,onWardSelect,location,resources=[],selectedResourceId,onResourceSelect,className,selectedDate}:HeatMapProps) {
+  const container=useRef<HTMLDivElement>(null), instanceRef=useRef<MapLibreMap|null>(null)
+  const [map,setMap]=useState<MapLibreMap|null>(null), [error,setError]=useState<string|null>(null), [riskVisible,setRiskVisible]=useState(true), [resourcesVisible,setResourcesVisible]=useState(true)
+  const risks=useMemo(()=>new Map(wards.map(w=>[w.ward_id,w])),[wards]), key=locationKey(location)
+  useEffect(()=>{
+    if (!container.current || instanceRef.current) return
     let instance: MapLibreMap
-    try {
-      instance = new maplibregl.Map({
-        container: containerRef.current,
-        style: BASE_STYLE,
-        center: [78.4744, 17.428],
-        zoom: 10.5,
-        attributionControl: { compact: true },
-        // Rotation is a liability on a phone held one-handed in the field.
-        dragRotate: false,
-        pitchWithRotate: false,
-        touchZoomRotate: true,
-      })
-    } catch (error) {
-      setRenderError(
-        error instanceof Error ? error.message : 'Map could not be created',
-      )
-      return
+    try {instance=new maplibregl.Map({container:container.current,style:BASE_STYLE,center:[80.5,22],zoom:3.5,attributionControl:{compact:true},dragRotate:false,pitchWithRotate:false})} catch {setError('Interactive map unavailable on this device. Use the place, ward and nearby-help lists.');return}
+    instanceRef.current=instance
+    instance.touchZoomRotate.disableRotation();instance.keyboard.disableRotation();instance.addControl(new maplibregl.NavigationControl({showCompass:false}),'top-right')
+    instance.once('style.load',()=>setMap(instance))
+    instance.on('error',event=>{if(event.error.message.includes('WebGL')) setError('Map rendering failed. The accessible lists remain available.')})
+    const observer=new ResizeObserver(()=>instance.resize());observer.observe(container.current)
+    return ()=>{observer.disconnect();instance.remove();instanceRef.current=null}
+  },[])
+  useEffect(()=>{
+    if (!map) return
+    if(!location){map.jumpTo({center:[80.5,22],zoom:3.5});return}
+    const marker=new maplibregl.Marker({color:'#1C2833'}).setLngLat([location.longitude,location.latitude]).addTo(map)
+    marker.getElement().setAttribute('aria-label',`Selected location: ${location.name}`)
+    if(location.bounds) map.fitBounds(location.bounds,{padding:40,maxZoom:10,duration:0})
+    else map.jumpTo({center:[location.longitude,location.latitude],zoom:10})
+    return ()=>{marker.remove()}
+  // Coordinate identity controls recentering; reverse geocoding must not move the map.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[map,key])
+  useEffect(()=>{
+    if(!map || !geojson || !selectedWardId)return
+    const f=geojson.features.find(f=>f.properties.ward_id===selectedWardId), bounds=f ? bboxOf([f]):null
+    if(bounds)map.fitBounds(bounds,{padding:40,maxZoom:14,duration:0})
+  },[map,geojson,selectedWardId])
+  useEffect(()=>{
+    if(!map)return
+    if(!map.getSource('help')) {
+      map.addSource('help',{type:'geojson',data:{type:'FeatureCollection',features:[]},cluster:true,clusterMaxZoom:13,clusterRadius:35})
+      map.addLayer({id:'help-clusters',type:'circle',source:'help',filter:['has','point_count'],paint:{'circle-color':'#1C596B','circle-radius':17,'circle-stroke-color':'#FFFFFF','circle-stroke-width':2}})
+      map.addLayer({id:'help-points',type:'circle',source:'help',filter:['!', ['has','point_count']],paint:{'circle-color':['match',['get','category'],'water','#2471A3','medical','#884EA0','#1C596B'],'circle-radius':['case',['==',['get','id'],selectedResourceId ?? ''],10,7],'circle-stroke-color':'#FFFFFF','circle-stroke-width':2}})
     }
-
-    instance.touchZoomRotate.disableRotation()
-    instance.keyboard.disableRotation()
-    instance.addControl(
-      new maplibregl.NavigationControl({ showCompass: false }),
-      'top-right',
-    )
-
-    instance.on('error', (event) => {
-      // Tile 404s are noisy but harmless; only surface fatal style errors.
-      if (event?.error?.message?.includes('WebGL')) {
-        setRenderError(event.error.message)
-      }
-    })
-
-    const ready = () => setMap(instance)
-    if (instance.isStyleLoaded()) ready()
-    else instance.on('load', ready)
-
-    mapRef.current = instance
-
-    return () => {
-      instance.remove()
-      mapRef.current = null
-      setMap(null)
-    }
-  }, [])
-
-  // Fit to all wards the first time geometry arrives — but only once the
-  // container actually has a size, or the fit resolves to a zoomed-out world.
-  const fitAll = useCallback(() => {
-    const element = containerRef.current
-    const instance = mapRef.current
-    const collection = geojsonRef.current
-    if (!element || !instance || !collection) return false
-    if (element.clientWidth < 40 || element.clientHeight < 40) return false
-
-    const bounds = bboxOf(collection.features)
-    if (!bounds) return false
-
-    instance.fitBounds(bounds, { padding: FIT_PADDING, duration: 0 })
-    instance.triggerRepaint()
-    return true
-  }, [])
-
-  useEffect(() => {
-    if (!map || !geojson || hasFitRef.current) return
-    if (fitAll()) hasFitRef.current = true
-  }, [map, geojson, fitAll])
-
-  /**
-   * MapLibre only watches the window, not its container, so a panel opening or
-   * the grid reflowing would otherwise leave a stretched canvas behind.
-   */
-  useEffect(() => {
-    const element = containerRef.current
-    if (!map || !element) return
-
-    const observer = new ResizeObserver(() => {
-      map.resize()
-      if (!hasFitRef.current && fitAll()) hasFitRef.current = true
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [map, fitAll])
-
-  // Fly to a ward when it is selected from anywhere in the app.
-  useEffect(() => {
-    if (!map || !geojson || !selectedWardId) return
-    const feature = geojson.features.find(
-      (f) => f.properties.ward_id === selectedWardId,
-    )
-    if (!feature) return
-    const bounds = bboxOf([feature])
-    if (!bounds) return
-    map.fitBounds(bounds, { padding: 120, maxZoom: 14, duration: 600 })
-  }, [map, geojson, selectedWardId])
-
-  return (
-    <div
-      data-testid="heat-map"
-      className={cn(
-        'relative h-full w-full overflow-hidden rounded-lg border border-border bg-white',
-        className,
-      )}
-    >
-      <div ref={containerRef} className="h-full w-full" />
-
-      {/* Text mirror of the choropleth: keyboard and screen-reader users get
-          the same information the colours carry. */}
-      <ul className="sr-only" data-testid="ward-risk-list">
-        {wards.map((ward) => (
-          <li key={ward.ward_id} data-ward-id={ward.ward_id}>
-            {ward.ward_name} — Level {ward.risk_level}{' '}
-            {RISK_LABELS[ward.risk_level]}
-          </li>
-        ))}
-      </ul>
-
-      {unavailable ? (
-        <div
-          data-testid="map-unavailable"
-          className="absolute inset-0 flex items-center justify-center bg-slate-200/80 p-6 text-center backdrop-blur-[1px]"
-        >
-          <p className="max-w-xs text-sm font-medium text-foreground">
-            Cached data unavailable — connect to internet
-          </p>
-        </div>
-      ) : null}
-
-      {renderError ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-slate-100 p-6 text-center">
-          <p className="max-w-sm text-sm tapas-subtext">
-            The map could not be drawn on this device ({renderError}). Ward risk
-            levels are still listed in the ranking panel.
-          </p>
-        </div>
-      ) : null}
-
-      {map && geojson ? (
-        <WardLayer
-          map={map}
-          geojson={geojson}
-          risks={risks}
-          selectedWardId={selectedWardId}
-          onWardSelect={onWardSelect}
-        />
-      ) : null}
-    </div>
-  )
+    const source=map.getSource('help') as GeoJSONSource
+    source.setData({type:'FeatureCollection',features:(resourcesVisible?resources:[]).map(r=>({type:'Feature',geometry:{type:'Point',coordinates:[r.longitude,r.latitude]},properties:{id:r.id,category:r.category,name:r.name}}))})
+    map.setPaintProperty('help-points','circle-radius',['case',['==',['get','id'],selectedResourceId ?? ''],10,7])
+  },[map,resources,resourcesVisible,selectedResourceId])
+  useEffect(()=>{
+    if(!map)return
+    const click=(event:MapLayerMouseEvent)=>{const resource=resources.find(r=>r.id===event.features?.[0]?.properties?.id);if(resource)onResourceSelect?.(resource)}
+    const cluster=(event:MapLayerMouseEvent)=>{const f=event.features?.[0];if(!f || f.geometry.type!=='Point')return; const center=f.geometry.coordinates as [number,number];void (map.getSource('help') as GeoJSONSource).getClusterExpansionZoom(Number(f.properties?.cluster_id)).then(zoom=>{if(instanceRef.current===map)map.easeTo({center,zoom,duration:0})}).catch(()=>{})}
+    map.on('click','help-points',click);map.on('click','help-clusters',cluster)
+    return()=>{map.off('click','help-points',click);map.off('click','help-clusters',cluster)}
+  },[map,resources,onResourceSelect])
+  useEffect(()=>{
+    const resource=resources.find(r=>r.id===selectedResourceId)
+    if(!map || !resource || !resourcesVisible)return
+    map.easeTo({center:[resource.longitude,resource.latitude],zoom:15,duration:0})
+    const content=document.createElement('div');content.textContent=`${resource.name} · ${resource.category} · availability unconfirmed`;content.className='text-xs'
+    const popup=new maplibregl.Popup({offset:10}).setLngLat([resource.longitude,resource.latitude]).setDOMContent(content).addTo(map)
+    return()=>{popup.remove()}
+  },[map,resources,selectedResourceId,resourcesVisible])
+  return <div id="heat-map" data-testid="heat-map" className={cn('relative flex h-full w-full flex-col overflow-hidden rounded-lg border border-border bg-secondary',className)}><div className="relative min-h-0 flex-1"><div ref={container} className="h-full w-full" aria-label={`Map for ${location?.name ?? 'India'}`} /><div className="absolute left-2 top-2 z-10 max-w-[calc(100%-4rem)] rounded-md border bg-white/95 p-2 text-xs shadow-sm"><p className="font-semibold">{location?.name ?? 'India · choose a place'}</p><p className="mt-1 hidden tapas-subtext sm:block">{selectedDate} · {geojson?.features.length ? 'Regional boundaries loaded' : 'Weather heat layer independent of ward coverage'}</p><div className="mt-1 flex flex-wrap gap-x-3"><label className="flex min-h-11 items-center gap-1"><input type="checkbox" checked={riskVisible} onChange={e=>setRiskVisible(e.target.checked)}/>Ward layer</label><label className="flex min-h-11 items-center gap-1"><input type="checkbox" checked={resourcesVisible} onChange={e=>setResourcesVisible(e.target.checked)}/>Nearby help ({resources.length})</label></div></div>{error ? <p role="status" className="absolute inset-x-2 bottom-12 rounded-md border bg-white p-3 text-sm">{error}</p>:null}<ul className="sr-only" data-testid="ward-risk-list">{wards.map(w=><li key={w.ward_id} data-ward-id={w.ward_id}>{w.ward_name} — {w.risk_level ? `Level ${w.risk_level} ${RISK_LABELS[w.risk_level]}`:'Risk unavailable'}</li>)}</ul></div><ThermalLayer map={map} date={selectedDate}/>{map ? <WardLayer map={map} geojson={riskVisible ? geojson ?? EMPTY : EMPTY} risks={risks} selectedWardId={selectedWardId} onWardSelect={onWardSelect}/>:null}</div>
 }

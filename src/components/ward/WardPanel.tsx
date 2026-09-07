@@ -1,7 +1,10 @@
 'use client'
+import { DataStatus } from '@/components/data/DataStatus'
 
-import { useMemo, useState } from 'react'
-import { Moon, X, Zap } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Moon, X } from 'lucide-react'
+import { useLocation } from '@/components/providers/LocationProvider'
+import { alertValidity } from '@/components/alerts/validity'
 
 import { DeathsDisplay } from '@/components/risk/DeathsDisplay'
 import { RiskBadge } from '@/components/risk/RiskBadge'
@@ -16,10 +19,9 @@ import { useWard } from '@/hooks/useWard'
 import {
   LANGUAGES,
   TRANSLATION_DISCLAIMER,
-  hapTriggers,
 } from '@/lib/constants'
 import type { Language, WardRisk } from '@/lib/types'
-import { cn, formatTemp, parseIsoDate } from '@/lib/utils'
+import { cn, formatTemp, formatDateTime, longDate } from '@/lib/utils'
 
 export interface WardPanelProps {
   wardId: string
@@ -39,21 +41,28 @@ export function WardPanel({
   className,
 }: WardPanelProps) {
   const { forecast, risk, facilities } = useWard(wardId)
-  const { data: alertData } = useAlerts(1, 200)
+  const alerts = useAlerts(1, 200)
+  const alertData = alerts.data
+  const { location } = useLocation()
   const [language, setLanguage] = useState<Language>('en')
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
-  const days = risk.data?.days ?? []
+  const days = risk.data?.ward_id === wardId ? risk.data.days : []
   const today: WardRisk | undefined =
-    days.find((d) => d.date === selectedDate) ?? days[0]
+    days.find((d) => d.date === selectedDate && d.ward_id === wardId)
 
   const displayName = risk.data?.ward_name ?? wardName ?? wardId
 
   const alert = useMemo(
     () =>
-      alertData?.alerts.find(
-        (a) => a.ward_id === wardId && a.date === selectedDate,
-      ) ?? alertData?.alerts.find((a) => a.ward_id === wardId),
-    [alertData, wardId, selectedDate],
+      alertData?.alerts.filter(
+        (a) => a.ward_id === wardId && a.date === selectedDate && !['expired', 'scheduled'].includes(alertValidity(a, now)),
+      ).sort((a, b) => (b.issued_at ? Date.parse(b.issued_at) : 0) - (a.issued_at ? Date.parse(a.issued_at) : 0))[0],
+    [alertData, wardId, selectedDate, now],
   )
 
   return (
@@ -64,13 +73,14 @@ export function WardPanel({
     >
       <header className="flex items-start justify-between gap-2 border-b border-border p-3">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-semibold">{displayName}</h2>
+          <h2 className="break-words text-base font-semibold">{displayName}</h2>
+          <p className="mt-1 text-xs tapas-subtext">{longDate(selectedDate)}</p>
           <div className="mt-1.5">
             {today ? (
               <RiskBadge level={today.risk_level} size="md" />
             ) : (
               <span className="text-xs tapas-subtext">
-                {risk.isPending ? 'Loading ward…' : 'No forecast for this ward'}
+                {risk.isPending ? 'Loading ward…' : risk.isError ? 'Ward forecast service unavailable' : 'No forecast for this ward and date'}
               </span>
             )}
           </div>
@@ -116,17 +126,22 @@ export function WardPanel({
           <TabsContent value="forecast" className="space-y-4">
             <section aria-label="UTCI forecast">
               <h3 className="text-xs font-semibold uppercase tracking-wide tapas-subtext">
-                48-hour UTCI vs ward baseline
+                Selected-day UTCI vs supplied baseline
               </h3>
               {forecast.isPending ? (
                 <p className="mt-2 text-xs tapas-subtext">Loading forecast…</p>
+              ) : forecast.isError ? (
+                <p role="status" className="mt-2 text-xs tapas-subtext">Forecast request failed. Values are unavailable.</p>
               ) : (
                 <UtciChart
                   className="mt-1"
-                  hourly={forecast.data?.hourly ?? []}
+                  hourly={forecast.data?.ward_id === wardId ? forecast.data.hourly : []}
                   baselineP97={forecast.data?.baseline_p97}
+                  selectedDate={selectedDate}
+                  timezone={location?.timezone ?? 'Asia/Kolkata'}
                 />
               )}
+              <DataStatus label="Ward forecast" provenance={forecast.data?.provenance} />
               {today ? <PlainLanguage day={today} /> : null}
             </section>
 
@@ -143,12 +158,13 @@ export function WardPanel({
                   low={today.excess_deaths_low}
                   high={today.excess_deaths_high}
                   level={today.risk_level}
-                  when={today.date === selectedDate ? 'today' : 'that day'}
+                  when={`on ${longDate(today.date)}`}
+                  source={today.model_source}
+                  intervalLabel={today.confidence_level ? `${today.confidence_level}% ${today.interval_type ?? 'reported interval'}` : today.interval_type}
                 />
               </section>
             ) : null}
 
-            {today ? <HapTriggers level={today.risk_level} /> : null}
           </TabsContent>
 
           <TabsContent value="advisory" className="space-y-2">
@@ -160,7 +176,7 @@ export function WardPanel({
                   onClick={() => setLanguage(lang.code)}
                   aria-pressed={language === lang.code}
                   className={cn(
-                    'rounded-md border px-2.5 py-1 text-xs transition-colors',
+                    'min-h-11 rounded-md border px-2.5 py-2 text-xs transition-colors',
                     language === lang.code
                       ? 'border-foreground/40 bg-secondary font-medium'
                       : 'border-border hover:bg-secondary/60',
@@ -171,7 +187,7 @@ export function WardPanel({
               ))}
             </div>
 
-            <AdvisoryText
+            {alerts.isPending ? <p role="status" className="text-xs tapas-subtext">Loading advisories…</p> : alerts.isError ? <p role="status" className="text-xs tapas-subtext">Advisory service unavailable. This does not mean no advisory has been issued.</p> : <AdvisoryText
               language={language}
               text={
                 language === 'en'
@@ -180,15 +196,19 @@ export function WardPanel({
                     ? alert?.advisory_hi
                     : alert?.advisory_te
               }
-            />
+              hasAlert={Boolean(alert)}
+            />}
+            {alert ? <p className="text-[11px] tapas-subtext">Issued: {formatDateTime(alert.issued_at)} · Source: {alert.provenance?.source ?? 'not supplied'}{alert.expires_at ? ` · Expires: ${formatDateTime(alert.expires_at)}` : ' · Expiry not supplied'}</p> : null}
           </TabsContent>
 
           <TabsContent value="facilities">
+            <p className="mb-2 text-xs tapas-subtext">Ward-source records. Verification dates do not establish current opening or availability.</p>
             <FacilitiesTab
               facilities={facilities.data?.facilities ?? []}
               isLoading={facilities.isPending}
               isError={facilities.isError}
             />
+            <DataStatus label="Ward facilities" provenance={facilities.data?.provenance} />
           </TabsContent>
         </Tabs>
       </div>
@@ -201,10 +221,8 @@ export function WardPanel({
  * the translation layer between the model and the decision.
  */
 function PlainLanguage({ day }: { day: WardRisk }) {
+  if (day.utci_max === null || day.utci_p97 === null) return <p className="mt-2 text-xs tapas-subtext">Peak UTCI or its baseline is unavailable; no anomaly can be calculated.</p>
   const delta = day.utci_max - day.utci_p97
-  const month = parseIsoDate(day.date).toLocaleDateString('en-IN', {
-    month: 'long',
-  })
 
   return (
     <p className="mt-2 rounded-md bg-secondary/70 p-2 text-xs leading-relaxed">
@@ -212,7 +230,7 @@ function PlainLanguage({ day }: { day: WardRisk }) {
       <strong>
         {Math.abs(delta).toFixed(1)}°C {delta >= 0 ? 'above' : 'below'}
       </strong>{' '}
-      the 97th percentile for this ward in {month} (
+      the supplied 97th-percentile baseline for this ward (
       {formatTemp(day.utci_p97)}).
     </p>
   )
@@ -220,16 +238,16 @@ function PlainLanguage({ day }: { day: WardRisk }) {
 
 function KeyNumbers({ day }: { day: WardRisk }) {
   const items: { label: string; value: string; tone?: string }[] = [
-    { label: 'Peak UTCI today', value: formatTemp(day.utci_max) },
+    { label: 'Peak UTCI for selected date', value: formatTemp(day.utci_max) },
     { label: 'Heat index', value: formatTemp(day.heat_index_max, 0) },
     {
       label: 'Hot night',
-      value: day.hot_night ? 'Yes' : 'No',
+      value: day.hot_night === null ? 'Unavailable' : day.hot_night ? 'Yes' : 'No',
       tone: day.hot_night ? 'text-[var(--risk-4)]' : 'tapas-subtext',
     },
     {
       label: 'Consecutive hot days',
-      value: `${day.consecutive_hot_days} ${
+      value: day.consecutive_hot_days === null ? 'Unavailable' : `${day.consecutive_hot_days} ${
         day.consecutive_hot_days === 1 ? 'day' : 'days'
       }`,
     },
@@ -265,44 +283,19 @@ function KeyNumbers({ day }: { day: WardRisk }) {
   )
 }
 
-function HapTriggers({ level }: { level: WardRisk['risk_level'] }) {
-  const actions = hapTriggers(level)
-
-  return (
-    <section aria-label="Recommended actions">
-      <h3 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide tapas-subtext">
-        <Zap className="h-3.5 w-3.5" aria-hidden="true" />
-        Recommended actions for this ward
-      </h3>
-      <ul className="mt-1.5 space-y-1" data-testid="hap-triggers">
-        {actions.map((action) => (
-          <li key={action} className="flex gap-2 text-xs leading-relaxed">
-            <span aria-hidden="true" className="tapas-subtext">
-              •
-            </span>
-            <span>{action}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-1.5 text-[11px] tapas-subtext">
-        Derived from the ward risk level under the city Heat Action Plan.
-      </p>
-    </section>
-  )
-}
-
 function AdvisoryText({
   language,
   text,
+  hasAlert,
 }: {
   language: Language
   text: string | undefined
+  hasAlert: boolean
 }) {
   if (!text) {
     return (
       <p className="text-xs tapas-subtext">
-        No advisory has been issued for this ward and day. Advisories are
-        generated at level 4 and above.
+        {hasAlert ? 'This advisory is not available in the selected language.' : 'No matching advisory was returned for this ward and date. Consult the official bulletin for current warnings.'}
       </p>
     )
   }

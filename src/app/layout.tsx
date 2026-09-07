@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from 'next'
+import { Suspense } from 'react'
+import { LocationProvider } from '@/components/providers/LocationProvider'
 import { Inter } from 'next/font/google'
 
 import './globals.css'
@@ -52,6 +54,7 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body>
         <QueryProvider>
+          <Suspense fallback={<p className="p-4">Loading TAPAS…</p>}><LocationProvider>
           <a
             href="#main"
             className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm"
@@ -65,6 +68,7 @@ export default function RootLayout({
           </main>
           <Toaster />
           <ServiceWorkerRegister />
+          </LocationProvider></Suspense>
         </QueryProvider>
         <span className="sr-only">{APP_LONG_NAME}</span>
       </body>

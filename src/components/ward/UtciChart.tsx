@@ -1,210 +1,108 @@
-'use client'
+﻿'use client'
 
 import { useMemo } from 'react'
-import {
-  Area,
-  CartesianGrid,
-  ComposedChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
-
+import { Area, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { RISK_COLORS } from '@/lib/constants'
 import type { ForecastHour } from '@/lib/types'
-import { cn } from '@/lib/utils'
+import { cn, formatTemp } from '@/lib/utils'
 
 interface Point {
   idx: number
   time: string
-  hour: number
   label: string
-  utci: number
-  baseline: number
-  /** Height of the red wedge above the baseline; 0 when under it. */
-  exceedance: number
+  fullLabel: string
+  utci: number | null
+  baseline: number | null
+  exceedance: number | null
+}
+const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
+
+export function forecastDate(time: string, timezone = 'Asia/Kolkata'): string | null {
+  const date = new Date(time)
+  if (!Number.isFinite(date.getTime())) return null
+  const parts = new Intl.DateTimeFormat('en-CA', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(date)
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value
+  return `${part('year')}-${part('month')}-${part('day')}`
 }
 
-function clockLabel(hour: number): string {
-  if (hour === 0) return 'midnight'
-  if (hour === 12) return 'noon'
-  return hour < 12 ? `${hour}am` : `${hour - 12}pm`
+export function forecastPoints(hourly: ForecastHour[], selectedDate?: string, timezone = 'Asia/Kolkata'): Point[] {
+  return hourly
+    .filter((hour) => {
+      const date = forecastDate(hour.time, timezone)
+      return date !== null && (!selectedDate || date === selectedDate)
+    })
+    .sort((a, b) => Date.parse(a.time) - Date.parse(b.time))
+    .map((hour, idx) => {
+      const utci = finite(hour.utci) ? hour.utci : null
+      const baseline = finite(hour.baseline_p97) ? hour.baseline_p97 : null
+      const date = new Date(hour.time)
+      return {
+        idx, time: hour.time, utci, baseline,
+        exceedance: utci !== null && baseline !== null ? Math.max(0, utci - baseline) : null,
+        label: date.toLocaleTimeString('en-IN', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hour12: false }),
+        fullLabel: date.toLocaleString('en-IN', { timeZone: timezone, day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false }),
+      }
+    })
 }
 
 export interface UtciChartProps {
   hourly: ForecastHour[]
-  /** Falls back to the per-hour baseline when the daily figure is absent. */
-  baselineP97?: number
+  baselineP97?: number | null
+  selectedDate?: string
+  timezone?: string
   className?: string
 }
 
-/**
- * 48-hour UTCI forecast against the ward's own climatology.
- *
- * The baseline is not optional furniture — a UTCI number means nothing without
- * it. 42°C is an ordinary May afternoon in one ward and a red alert in another,
- * and the gap between the two lines is the whole signal.
- */
-export function UtciChart({ hourly, baselineP97, className }: UtciChartProps) {
-  const data = useMemo<Point[]>(
-    () =>
-      hourly.map((h, idx) => {
-        const date = new Date(h.time)
-        const hour = Number.isNaN(date.getTime()) ? idx % 24 : date.getHours()
-        const baseline = h.baseline_p97 || baselineP97 || 0
-        return {
-          idx,
-          time: h.time,
-          hour,
-          label: clockLabel(hour),
-          utci: h.utci,
-          baseline,
-          exceedance: Math.max(0, h.utci - baseline),
-        }
-      }),
-    [hourly, baselineP97],
+export function UtciChart({ hourly, baselineP97, selectedDate, timezone = 'Asia/Kolkata', className }: UtciChartProps) {
+  const data = useMemo(() => forecastPoints(hourly, selectedDate, timezone), [hourly, selectedDate, timezone])
+  const values = data.flatMap((point) => [point.utci, point.baseline]).filter(finite)
+  if (!data.length || !data.some((point) => point.utci !== null)) return (
+    <p className={cn('text-xs tapas-subtext', className)}>Hourly UTCI forecast unavailable for {selectedDate ?? 'this period'} ({timezone}).</p>
   )
-
-  const ticks = useMemo(
-    () => data.filter((d) => d.hour % 6 === 0).map((d) => d.idx),
-    [data],
-  )
-
-  if (data.length === 0) {
-    return (
-      <p className={cn('text-xs tapas-subtext', className)}>
-        Hourly forecast unavailable for this ward.
-      </p>
-    )
-  }
-
-  const values = data.flatMap((d) => [d.utci, d.baseline])
-  const yMin = Math.floor(Math.min(...values) - 2)
-  const yMax = Math.ceil(Math.max(...values) + 2)
-
+  const baselineAvailable = data.some((point) => point.baseline !== null)
   return (
-    <div className={cn('w-full', className)} data-testid="utci-chart">
+    <div className={cn('w-full min-w-0', className)} data-testid="utci-chart">
+      <p className="mb-1 text-[11px] tapas-subtext">{data[0].fullLabel} – {data[data.length - 1].fullLabel} · {timezone}</p>
       <ResponsiveContainer width="100%" height={220}>
-        <ComposedChart
-          data={data}
-          margin={{ top: 8, right: 8, bottom: 4, left: 0 }}
-        >
+        <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 4, left: 0 }}>
           <CartesianGrid stroke="#E9ECEF" vertical={false} />
-          <XAxis
-            dataKey="idx"
-            type="number"
-            domain={[0, data.length - 1]}
-            ticks={ticks}
-            tickFormatter={(idx: number) => data[idx]?.label ?? ''}
-            tick={{ fontSize: 11, fill: '#566573' }}
-            tickLine={false}
-            axisLine={{ stroke: '#D5D8DC' }}
-            interval="preserveStartEnd"
-          />
-          <YAxis
-            domain={[yMin, yMax]}
-            tick={{ fontSize: 11, fill: '#566573' }}
-            tickLine={false}
-            axisLine={false}
-            width={48}
-            unit="°C"
-          />
-          <Tooltip content={<UtciTooltip />} />
-
-          {/* Transparent pedestal + red wedge = the area between the forecast
-              and the baseline, drawn only where the forecast is higher. */}
-          <Area
-            dataKey="baseline"
-            stackId="gap"
-            stroke="none"
-            fill="none"
-            fillOpacity={0}
-            isAnimationActive={false}
-            legendType="none"
-          />
-          <Area
-            dataKey="exceedance"
-            stackId="gap"
-            stroke="none"
-            fill={RISK_COLORS[4]}
-            fillOpacity={0.22}
-            isAnimationActive={false}
-            legendType="none"
-          />
-
-          <Line
-            dataKey="baseline"
-            name="97th-percentile baseline"
-            stroke="#8A939B"
-            strokeWidth={1.5}
-            strokeDasharray="5 4"
-            dot={false}
-            isAnimationActive={false}
-          />
-          <Line
-            dataKey="utci"
-            name="UTCI forecast"
-            stroke={RISK_COLORS[4]}
-            strokeWidth={2}
-            dot={false}
-            isAnimationActive={false}
-          />
+          <XAxis dataKey="idx" tickFormatter={(idx: number) => data[idx]?.label ?? ''} tick={{ fontSize: 11, fill: '#566573' }}
+            tickLine={false} axisLine={{ stroke: '#D5D8DC' }} interval="preserveStartEnd" minTickGap={24} />
+          <YAxis domain={[Math.floor(Math.min(...values) - 2), Math.ceil(Math.max(...values) + 2)]}
+            tick={{ fontSize: 11, fill: '#566573' }} tickLine={false} axisLine={false} width={48} unit="°C" />
+          <Tooltip content={<UtciTooltip timezone={timezone} />} />
+          <Area dataKey="baseline" stackId="gap" stroke="none" fill="none" fillOpacity={0} isAnimationActive={false} legendType="none" connectNulls={false} />
+          <Area dataKey="exceedance" stackId="gap" stroke="none" fill={RISK_COLORS[4]} fillOpacity={0.22} isAnimationActive={false} legendType="none" connectNulls={false} />
+          <Line dataKey="baseline" name="Supplied 97th-percentile baseline" stroke="#8A939B" strokeWidth={1.5} strokeDasharray="5 4" dot={false} isAnimationActive={false} connectNulls={false} />
+          <Line dataKey="utci" name="UTCI forecast" stroke={RISK_COLORS[4]} strokeWidth={2} dot={false} isAnimationActive={false} connectNulls={false} />
         </ComposedChart>
       </ResponsiveContainer>
-
-      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] tapas-subtext">
-        <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block h-0.5 w-4"
-            style={{ backgroundColor: RISK_COLORS[4] }}
-          />
-          UTCI forecast
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-0 w-4 border-t-[1.5px] border-dashed border-[#8A939B]" />
-          Ward 97th-percentile baseline (1991–2020)
-        </span>
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 px-1 text-[11px] tapas-subtext">
+        <span className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-4 bg-[var(--risk-4)]" />UTCI forecast</span>
+        {baselineAvailable ? <span className="flex items-center gap-1.5"><span className="inline-block h-0 w-4 border-t border-dashed border-[#8A939B]" />Supplied hourly 97th-percentile baseline</span> : <span>Hourly baseline unavailable; comparison not shown</span>}
       </div>
+      {finite(baselineP97) ? <p className="mt-1 text-[11px] tapas-subtext">Supplied daily baseline: {formatTemp(baselineP97)}. Hourly gaps remain unavailable.</p> : null}
+      <details className="mt-2 text-xs">
+        <summary className="cursor-pointer py-2 font-medium">Forecast values as a table</summary>
+        <div className="overflow-x-auto"><table className="w-full text-left">
+          <thead><tr><th className="p-2">Time ({timezone})</th><th className="p-2">UTCI</th><th className="p-2">Baseline</th></tr></thead>
+          <tbody>{data.map((point) => <tr key={point.time} className="border-t border-border"><td className="p-2">{point.fullLabel}</td><td className="p-2">{formatTemp(point.utci)}</td><td className="p-2">{formatTemp(point.baseline)}</td></tr>)}</tbody>
+        </table></div>
+      </details>
     </div>
   )
 }
 
-interface TooltipPayloadItem {
-  payload?: Point
-}
-
-function UtciTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean
-  payload?: TooltipPayloadItem[]
-}) {
+function UtciTooltip({ active, payload, timezone }: { active?: boolean; payload?: { payload?: Point }[]; timezone: string }) {
   const point = payload?.[0]?.payload
   if (!active || !point) return null
-
-  const delta = point.utci - point.baseline
-  const above = delta > 0
-
+  const delta = point.utci !== null && point.baseline !== null ? point.utci - point.baseline : null
   return (
-    <div className="rounded-md border border-border bg-white px-2.5 py-2 shadow-md">
-      <p className="text-xs font-semibold">{point.label}</p>
-      <p className="mt-1 text-xs">
-        UTCI <span className="font-semibold">{point.utci.toFixed(1)}°C</span>
-      </p>
-      <p className="text-[11px] tapas-subtext">
-        Baseline {point.baseline.toFixed(1)}°C
-      </p>
-      <p
-        className="mt-1 text-[11px] font-medium"
-        style={{ color: above ? RISK_COLORS[4] : RISK_COLORS[1] }}
-      >
-        {above
-          ? `${delta.toFixed(1)}°C above threshold`
-          : `${Math.abs(delta).toFixed(1)}°C below threshold`}
-      </p>
+    <div className="max-w-[16rem] rounded-md border border-border bg-white px-2.5 py-2 shadow-md">
+      <p className="text-xs font-semibold">{point.fullLabel} · {timezone}</p>
+      <p className="mt-1 text-xs">UTCI <strong>{formatTemp(point.utci)}</strong></p>
+      <p className="text-[11px] tapas-subtext">Baseline {formatTemp(point.baseline)}</p>
+      {delta !== null ? <p className="mt-1 text-[11px] font-medium">{Math.abs(delta).toFixed(1)}°C {delta >= 0 ? 'above' : 'below'} supplied baseline</p> : null}
     </div>
   )
 }

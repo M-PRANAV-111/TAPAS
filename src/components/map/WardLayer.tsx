@@ -238,7 +238,7 @@ export function WardLayer({
       map.off('mouseleave', WARD_FILL_LAYER, handleLeave)
       popup.remove()
     }
-  }, [map, onWardSelect])
+  }, [map, onWardSelect, risks, geojson])
 
   return null
 }

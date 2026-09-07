@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ---- TAPAS design system ------------------------------------------- */
+    --risk-1: #1e8449; /* Level 1 Low       — dark green */
+    --risk-2: #f1c40f; /* Level 2 Moderate  — amber */
+    --risk-3: #e67e22; /* Level 3 High      — orange */
+    --risk-4: #c0392b; /* Level 4 Very High — red */
+    --risk-5: #641e16; /* Level 5 Extreme   — dark red */
+    --bg: #f8f9fa;
+    --card: #ffffff;
+    --border: #d5d8dc;
+    --text: #1c2833;
+    --subtext: #566573;
+    --font: var(--font-inter), 'Inter', system-ui, sans-serif;
+
+    /* ---- shadcn/ui tokens (slate base), tuned to the palette above ------ */
+    --background: 210 20% 98%;
+    --foreground: 209 29% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 209 29% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 209 29% 15%;
+    --primary: 209 29% 15%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 209 29% 15%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 209 12% 39%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 209 29% 15%;
+    --destructive: 6 63% 46%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214 9% 85%;
+    --input: 214 9% 85%;
+    --ring: 209 29% 15%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    @apply antialiased;
+  }
+
+  /* Keyboard focus must stay visible on every interactive surface — these
+     screens get used one-handed in the field. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-offset-2;
+    --tw-ring-color: var(--risk-4);
+  }
+}
+
+@layer components {
+  .tapas-card {
+    background-color: var(--card);
+    border: 1px solid var(--border);
+    @apply rounded-lg;
+  }
+
+  .tapas-subtext {
+    color: var(--subtext);
+  }
+}
+
+/* MapLibre popups inherit the app's type rather than the library default. */
+.maplibregl-popup-content {
+  font-family: var(--font);
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 12px rgb(28 40 51 / 12%);
+}
+
+.maplibregl-ctrl-attrib.maplibregl-compact {
+  font-size: 11px;
+}
+
+/* Printing is how the occupational schedule leaves the building. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  body {
+    background: #ffffff;
+  }
+
+  .print-page {
+    break-inside: avoid;
+  }
+}
+
+.print-only {
+  display: none;
+}

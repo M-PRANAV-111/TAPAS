@@ -19,6 +19,7 @@
 .sceneMount { position: absolute; top: 6%; right: -10%; width: 85%; height: 85%; touch-action: pan-y; }
 .header { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .brand { display: inline-flex; align-items: center; gap: 13px; min-height: 44px; color: #f2b84b; text-decoration: none; }
+.brandLogo { width: 38px; height: 38px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(0 2px 8px rgba(242, 184, 75, 0.2)); }
 .brand > span { color: var(--entry-ink); font-size: 1.5rem; font-weight: 600; letter-spacing: .23em; line-height: 1.2; }
 .brand small { display: block; color: #a3a399; font-size: 0.5rem; font-weight: 400; letter-spacing: .17em; text-transform: uppercase; margin-top: 5px; }
 .headerRight { display: flex; align-items: center; gap: 36px; }

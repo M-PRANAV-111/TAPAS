@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowUpRight, Pause, Play } from 'lucide-react'
 import { ThermalScene } from '@/components/landing/ThermalScene'
 import type { EntryRole } from '@/components/landing/roles'
@@ -15,8 +16,15 @@ export function ThermalAccess({ role, children }: { role: Exclude<EntryRole, 'ci
     <div className={styles.access}>
       <section className={styles.scenePanel} aria-labelledby="access-scene-title">
         <Link href="/" className={styles.brand} title="Return to home">
-          <span className={styles.brandMark} aria-hidden="true">T</span>
-          TAPAS
+          <Image
+            src="/tapas-emblem.png"
+            alt="TAPAS Emblem"
+            width={30}
+            height={30}
+            className={styles.brandLogo}
+            priority
+          />
+          <span>TAPAS</span>
           <ArrowUpRight size={16} aria-hidden="true" />
         </Link>
 

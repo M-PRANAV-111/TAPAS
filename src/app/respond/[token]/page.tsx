@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { useParams } from 'next/navigation'
 import {
   AlertTriangle,
@@ -70,10 +71,15 @@ export default function ResponderPage() {
       <div className="space-y-4">
         <div className="rounded-xl border border-[var(--line-soft)] bg-[var(--surface-1)] p-4 shadow-xl">
           <div className="flex items-center justify-between border-b border-[var(--line-hair)] pb-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--surface-0)] font-black text-sm">
-                T
-              </span>
+            <div className="flex items-center gap-2.5">
+              <Image
+                src="/tapas-emblem.png"
+                alt="TAPAS Emblem"
+                width={28}
+                height={28}
+                className="h-7 w-7 object-contain"
+                priority
+              />
               <div>
                 <h1 className="text-xs font-bold uppercase tracking-wider text-[var(--ink-high)]">
                   TAPAS RESPONSE TASK

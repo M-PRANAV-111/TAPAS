@@ -2,6 +2,7 @@
 
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
 import { useLocation } from '@/components/providers/LocationProvider'
 import { ThermalScene } from './ThermalScene'
@@ -44,12 +45,23 @@ export function Hero() {
     <section className={styles.entry} aria-label="TAPAS entry experience" data-testid="thermal-entry" data-role={role.id}>
       <div className={styles.artWindow}>
         <div className={styles.sceneMount} data-testid="thermal-swipe-area" onPointerDown={startSwipe} onPointerUp={endSwipe} onPointerCancel={() => { gesture.current = null }}>
-          <ThermalScene role={role.id} paused={paused} />
+          <ThermalScene
+            role={role.id}
+            paused={paused}
+            onRoleChange={(newIndex) => select(newIndex)}
+          />
         </div>
       </div>
       <header className={styles.header}>
         <a href="#main" className={styles.brand} aria-label="TAPAS home">
-          <svg viewBox="0 0 34 34" width="34" height="34" fill="none" aria-hidden="true"><path d="M6 23C0 17 15 15 9 8M16 28C8 20 25 17 18 5M26 25C20 19 33 15 27 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          <Image
+            src="/tapas-emblem.png"
+            alt="TAPAS Emblem"
+            width={38}
+            height={38}
+            className={styles.brandLogo}
+            priority
+          />
           <span>TAPAS<small>Thermal intelligence system</small></span>
         </a>
         <div className={styles.headerRight}>

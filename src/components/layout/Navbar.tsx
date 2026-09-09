@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { Menu, X, ArrowRight, LogOut } from 'lucide-react'
 import { useDemoRole, signOutDemo } from '@/lib/auth/demoAuth'
@@ -48,9 +49,14 @@ export function Navbar() {
             className="group flex items-center gap-2.5 transition-opacity hover:opacity-90"
             title="Return to TAPAS Home"
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--accent)] text-[var(--surface-0)] font-black text-sm shadow-sm group-hover:scale-105 transition-transform">
-              T
-            </span>
+            <Image
+              src="/tapas-emblem.png"
+              alt="TAPAS Emblem"
+              width={28}
+              height={28}
+              className="h-7 w-7 object-contain transition-transform group-hover:scale-105"
+              priority
+            />
             <div className="flex items-baseline gap-1.5">
               <span className="text-sm font-extrabold tracking-wider text-[var(--ink-high)]">
                 TAPAS

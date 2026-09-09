@@ -1,114 +1,116 @@
 'use client'
+
+import { useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { Landmark, ShieldCheck, UserRound } from 'lucide-react'
+import { ArrowDown, ArrowRight, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react'
 import { useLocation } from '@/components/providers/LocationProvider'
-import { fetchTickerReadings } from '@/lib/landing'
-import type { HeatPoint } from '@/lib/heatGrid'
-import { cn } from '@/lib/utils'
-
-const CYCLE_MS = 4000
-
-function HeroTicker() {
-  const [points, setPoints] = useState<HeatPoint[] | null>(null)
-  const [failed, setFailed] = useState(false)
-  const [index, setIndex] = useState(0)
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetchTickerReadings(controller.signal)
-      .then((result) => (result.length ? setPoints(result) : setFailed(true)))
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return
-        setFailed(true)
-      })
-    return () => controller.abort()
-  }, [])
-
-  useEffect(() => {
-    if (!points || points.length < 2) return
-    const timer = window.setInterval(() => setIndex((i) => (i + 1) % points.length), CYCLE_MS)
-    return () => window.clearInterval(timer)
-  }, [points])
-
-  if (failed) return <p className="text-sm text-white/50">Live city conditions are unavailable right now.</p>
-  if (!points) return <p className="text-sm text-white/40">Loading live conditions…</p>
-
-  const point = points[index]
-  return (
-    <p key={point.id} className="tapas-ticker-fade text-sm text-white/75 sm:text-base">
-      Right now:{' '}
-      <strong className="font-semibold text-white">
-        {point.temperature !== null ? `${Math.round(point.temperature)}°C` : 'Unavailable'}
-      </strong>{' '}
-      in {point.name}
-    </p>
-  )
-}
-
-const ROLE_CARDS = [
-  {
-    icon: UserRound,
-    title: 'CITIZEN',
-    description: 'Check your heat risk and find help nearby',
-    cta: 'Open Dashboard',
-    href: '/dashboard',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'MANDAL OFFICER',
-    description: 'Monitor & respond locally',
-    cta: 'Officer Login',
-    href: '/login',
-  },
-  {
-    icon: Landmark,
-    title: 'HIGHER AUTHORITY',
-    description: 'Regional heat command',
-    cta: 'Authority Login',
-    href: '/login',
-  },
-] as const
+import { ThermalScene } from './ThermalScene'
+import { ReferenceWeather } from './ReferenceWeather'
+import { ENTRY_ROLES } from './roles'
+import styles from './Hero.module.css'
 
 export function Hero() {
   const { selectionQuery } = useLocation()
+  const [index, setIndex] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const tabs = useRef<Array<HTMLButtonElement | null>>([])
+  const gesture = useRef<{ x: number; y: number; id: number } | null>(null)
+  const role = ENTRY_ROLES[index]
+
+  const select = (next: number, focus = false) => {
+    const clamped = Math.max(0, Math.min(ENTRY_ROLES.length - 1, next))
+    setIndex(clamped)
+    if (focus) tabs.current[clamped]?.focus()
+  }
+  const handleKeys = (event: KeyboardEvent<HTMLDivElement>) => {
+    const next = event.key === 'ArrowRight' ? index + 1 : event.key === 'ArrowLeft' ? index - 1 : event.key === 'Home' ? 0 : event.key === 'End' ? ENTRY_ROLES.length - 1 : null
+    if (next !== null) { event.preventDefault(); select(next, true) }
+  }
+  const startSwipe = (event: PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' || !event.isPrimary) return
+    gesture.current = { x: event.clientX, y: event.clientY, id: event.pointerId }
+    event.currentTarget.setPointerCapture(event.pointerId)
+  }
+  const endSwipe = (event: PointerEvent<HTMLDivElement>) => {
+    const start = gesture.current
+    gesture.current = null
+    if (!start || start.id !== event.pointerId) return
+    const dx = event.clientX - start.x
+    const dy = event.clientY - start.y
+    if (Math.abs(dx) >= 50 && Math.abs(dx) > Math.abs(dy) * 1.5) select(index + (dx < 0 ? 1 : -1))
+  }
+
   return (
-    <section className="relative isolate overflow-hidden bg-[var(--bg)] px-3 py-16 text-white sm:px-4 sm:py-24">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="tapas-blob tapas-blob-1" />
-        <div className="tapas-blob tapas-blob-2" />
-        <div className="tapas-blob tapas-blob-3" />
-      </div>
-
-      <div className="relative mx-auto flex max-w-4xl flex-col items-center text-center">
-        <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">TAPAS</h1>
-        <p className="mt-3 max-w-xl text-base text-white/70 sm:text-lg">
-          India&rsquo;s Heat Risk Intelligence &amp; Response Platform
-        </p>
-        <div className="mt-6 min-h-6">
-          <HeroTicker />
-        </div>
-
-        <div className="mt-10 grid w-full gap-3 sm:grid-cols-3">
-          {ROLE_CARDS.map(({ icon: Icon, title, description, cta, href }) => (
-            <Link
-              key={title}
-              href={`${href}?${selectionQuery}`}
-              className={cn(
-                'group flex min-h-11 flex-col items-start gap-2 rounded-lg border border-white/15 bg-white/5 p-4 text-left',
-                'transition-all duration-150 hover:-translate-y-1 hover:border-[var(--risk-3)]',
-              )}
-            >
-              <Icon className="h-5 w-5 text-white/70" aria-hidden="true" />
-              <span className="text-xs font-semibold tracking-widest text-white/90">{title}</span>
-              <span className="text-sm text-white/60">{description}</span>
-              <span className="mt-1 text-sm font-medium text-[var(--risk-3)] group-hover:underline">
-                {cta} →
-              </span>
-            </Link>
-          ))}
+    <section className={styles.entry} aria-label="TAPAS entry experience" data-testid="thermal-entry" data-role={role.id}>
+      <div className={styles.artWindow}>
+        <div className={styles.sceneMount} data-testid="thermal-swipe-area" onPointerDown={startSwipe} onPointerUp={endSwipe} onPointerCancel={() => { gesture.current = null }}>
+          <ThermalScene role={role.id} paused={paused} />
         </div>
       </div>
+      <header className={styles.header}>
+        <a href="#main" className={styles.brand} aria-label="TAPAS home">
+          <svg viewBox="0 0 34 34" width="34" height="34" fill="none" aria-hidden="true"><path d="M6 23C0 17 15 15 9 8M16 28C8 20 25 17 18 5M26 25C20 19 33 15 27 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+          <span>TAPAS<small>Thermal intelligence system</small></span>
+        </a>
+        <div className={styles.headerRight}>
+          <span className={styles.systemLabel}>Extreme heat. Human impact.</span>
+          <Link href={'/about?' + selectionQuery} className={styles.about}>About TAPAS <ArrowRight size={13} aria-hidden="true" /></Link>
+        </div>
+      </header>
+      <div className={styles.body}>
+        <div className={styles.introduction}>
+          <p className={styles.eyebrow}><span className={styles.indicator} /> Heat intelligence, at every scale</p>
+          <div className={styles.panels}>
+            {ENTRY_ROLES.map((item, itemIndex) => {
+              const active = itemIndex === index
+              const href = item.href + (item.href.includes('?') ? '&' : '?') + selectionQuery
+              return (
+                <div key={item.id} id={'experience-' + item.id} role="tabpanel" aria-labelledby={'role-' + item.id} aria-hidden={!active} inert={!active} className={styles.panel} data-active={active}>
+                  <p className={styles.scaleLabel}>0{itemIndex + 1} <span>/</span> {item.scaleLabel}</p>
+                  <h1 className={styles.title}>{item.label}</h1>
+                  <p className={styles.description}>{item.description}</p>
+                  <ul className={styles.topics}>{item.topics.map((topic) => <li key={topic}>{topic}</li>)}</ul>
+                  <Link href={href} prefetch={active} className={styles.enter}>{item.cta}<ArrowRight size={18} aria-hidden="true" /></Link>
+                </div>
+              )
+            })}
+          </div>
+          <p className={styles.exploreNote}>Three perspectives. One connected heat picture.</p>
+        </div>
+        <div className={styles.fieldCaption} aria-hidden="true">
+          <span className={styles.fieldCross}>+</span>
+          <span>THERMAL EXPOSURE FIELD<small>Human · Local · Regional</small></span>
+        </div>
+        <div className={styles.sceneLegend}>
+          <span className={styles.spectrum} aria-hidden="true" />
+          <span>Illustrative thermal scene</span>
+          <button type="button" className={styles.motionButton} aria-label={paused ? 'Resume motion' : 'Pause motion'} aria-pressed={paused} onClick={() => setPaused((value) => !value)}>
+            {paused ? <Play size={12} aria-hidden="true" /> : <Pause size={12} aria-hidden="true" />}<span>{paused ? 'Resume motion' : 'Pause motion'}</span>
+          </button>
+        </div>
+      </div>
+      <footer className={styles.footer}>
+        <div className={styles.navigation}>
+          <div className={styles.navHeading}><span>Choose your perspective</span><span className={styles.count}>0{index + 1} / 03</span></div>
+          <div className={styles.navRow}>
+            <div role="tablist" aria-label="Choose your experience" onKeyDown={handleKeys} className={styles.tabs}>
+              {ENTRY_ROLES.map((item, itemIndex) => (
+                <button key={item.id} ref={(element) => { tabs.current[itemIndex] = element }} type="button" role="tab" id={'role-' + item.id} aria-controls={'experience-' + item.id} aria-selected={itemIndex === index} aria-label={item.label} tabIndex={itemIndex === index ? 0 : -1} onClick={() => select(itemIndex)} className={styles.tab}>
+                  <span className={styles.tabNumber}>0{itemIndex + 1}</span><span>{item.shortLabel}</span>
+                </button>
+              ))}
+            </div>
+            <div className={styles.arrows}>
+              <button type="button" aria-label="Previous experience" onClick={() => select(index - 1)} disabled={index === 0}><ChevronLeft size={18} aria-hidden="true" /></button>
+              <button type="button" aria-label="Next experience" onClick={() => select(index + 1)} disabled={index === ENTRY_ROLES.length - 1}><ChevronRight size={18} aria-hidden="true" /></button>
+            </div>
+          </div>
+          <span className={styles.swipeHint}>Swipe the scene to explore</span>
+        </div>
+        <div className={styles.weather}><ReferenceWeather /></div>
+      </footer>
+      <a href="#how-it-works-heading" className={styles.discover}>Discover how TAPAS works <ArrowDown size={12} aria-hidden="true" /></a>
+      <span className={styles.screenReader} role="status" aria-live="polite" aria-atomic="true">{role.label + '. ' + role.description}</span>
     </section>
   )
 }

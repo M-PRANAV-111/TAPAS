@@ -21,7 +21,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
   const [today, setToday] = useState(todayIso)
   const [selection, setSelection] = useState<Selection>(() => {
     const search = new URLSearchParams(params.toString()), location = readLocationParams(search)
-    return {location, selectedDate: isoDate(search.get('date')) ?? today, selectedWardId: location ? search.get('ward')?.slice(0,120) ?? null : null}
+    return {location, selectedDate: isoDate(search.get('date')) ?? today, selectedWardId: search.get('ward')?.slice(0,120) ?? null}
   })
   const ref = useRef(selection), lastApplied = useRef(''), pending = useRef<string | null>(null)
   ref.current = selection
@@ -36,7 +36,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     pending.current = null
     const search = new URLSearchParams(serialized), location = readLocationParams(search)
     const date = isoDate(search.get('date')) ?? todayIso()
-    setSelection({ location, selectedDate: date, selectedWardId: location ? search.get('ward')?.slice(0, 120) ?? null : null })
+    setSelection({ location, selectedDate: date, selectedWardId: search.get('ward')?.slice(0, 120) ?? null })
     if (!location) return
     const controller = new AbortController()
     reverseLocation(location.latitude, location.longitude, controller.signal).then(resolved => {
@@ -68,7 +68,7 @@ export function LocationProvider({ children }: { children: ReactNode }) {
     if (location) coordinateLocation(location.latitude, location.longitude)
     update({ ...ref.current, location, selectedWardId: null })
   }, [update])
-  const selectWard = useCallback((ward: string | null) => update({ ...ref.current, selectedWardId: ref.current.location ? ward : null }), [update])
+  const selectWard = useCallback((ward: string | null) => update({ ...ref.current, selectedWardId: ward }), [update])
   const setSelectedDate = useCallback((date: string) => { if (isoDate(date)) update({ ...ref.current, selectedDate: date }) }, [update])
   return <LocationContext.Provider value={{ ...selection, dates, selectLocation, selectWard, setSelectedDate, selectionQuery: selectionParams(selection.location, selection.selectedDate, selection.selectedWardId) }}>{children}</LocationContext.Provider>
 }

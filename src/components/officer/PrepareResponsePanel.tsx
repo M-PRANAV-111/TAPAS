@@ -15,12 +15,6 @@ const RECOMMENDED_ACTIONS = [
   'Advisory in Telugu and Hindi',
 ]
 
-const DEMO_BADGE = (
-  <span className="rounded bg-white/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
-    Demo mode
-  </span>
-)
-
 export interface PrepareResponseTriggerProps {
   wardName: string
   day: WardRisk
@@ -57,16 +51,14 @@ export function PrepareResponseTrigger({ wardName, day, facilitiesCount }: Prepa
       <Button variant="destructive" className="mt-2 flex w-full min-h-11 items-center gap-2" onClick={() => setOpen(true)}>
         <Megaphone className="h-4 w-4" aria-hidden="true" />
         Prepare Response
-        {DEMO_BADGE}
       </Button>
 
       <Sheet open={open} onOpenChange={close}>
         <SheetContent side="bottom" className="h-[85dvh] overflow-y-auto p-0" data-testid="prepare-response-panel">
           <SheetHeader className="items-start space-y-1.5 text-left">
-            {DEMO_BADGE}
             <SheetTitle>Prepare Response &mdash; {wardName}</SheetTitle>
             <SheetDescription className="sr-only">
-              Review and activate a demonstration heat response for this ward. No real message is sent.
+              Review and activate a heat response for this ward.
             </SheetDescription>
           </SheetHeader>
 
@@ -117,16 +109,12 @@ export function PrepareResponseTrigger({ wardName, day, facilitiesCount }: Prepa
 
             <div>
               <h3 className="text-xs font-semibold uppercase tracking-wide tapas-subtext">
-                Recipients (simulated &mdash; demo mode)
+                Recipients
               </h3>
               <p className="mt-1 text-sm">
                 {DEMO_COMMUNITY_CONTACTS.length} community contacts on file &middot; {facilitiesCount} registered facilities
               </p>
             </div>
-
-            <p className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-xs leading-relaxed text-amber-100">
-              This is a demonstration workflow. No real messages are sent. Recipients are seeded demo contacts.
-            </p>
 
             {status === 'idle' ? (
               <div className="flex gap-2">
@@ -134,14 +122,13 @@ export function PrepareResponseTrigger({ wardName, day, facilitiesCount }: Prepa
                   Cancel
                 </Button>
                 <Button variant="destructive" className="min-h-11 flex-1" onClick={confirm}>
-                  Confirm &amp; Activate &mdash; Demo Mode
+                  Confirm &amp; Activate Response
                 </Button>
               </div>
             ) : (
               <div className="rounded-md border border-border p-3 text-sm" role="status">
                 <p className="flex items-center gap-2 font-semibold">
-                  {status === 'activating' ? 'Preparing response…' : 'Response activated (demo)'}
-                  {DEMO_BADGE}
+                  {status === 'activating' ? 'Preparing response…' : 'Response activated'}
                 </p>
                 <p className="mt-1 text-xs tapas-subtext">
                   Recorded locally in this browser only. No message was sent to any real person or agency.

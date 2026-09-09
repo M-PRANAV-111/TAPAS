@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
 import { RiskBadge } from '@/components/risk/RiskBadge'
-import { RISK_COLORS, RISK_LABELS } from '@/lib/constants'
+import { RISK_COLORS, RISK_LABELS, RISK_TEXT_COLORS } from '@/lib/constants'
 import type { RiskLevel } from '@/lib/types'
 
 describe('RiskBadge', () => {
@@ -17,7 +17,7 @@ describe('RiskBadge', () => {
 
     const badge = screen.getByTestId('risk-badge')
     expect(badge).toHaveTextContent('Level 1 — Low')
-    expect(badge).toHaveStyle({ backgroundColor: '#4A7C59' })
+    expect(badge).toHaveStyle({ backgroundColor: RISK_COLORS[1] })
   })
 
   it('renders level 5 in the extreme dark red', () => {
@@ -25,7 +25,7 @@ describe('RiskBadge', () => {
 
     const badge = screen.getByTestId('risk-badge')
     expect(badge).toHaveTextContent('Level 5 — Extreme')
-    expect(badge).toHaveStyle({ backgroundColor: '#741E29' })
+    expect(badge).toHaveStyle({ backgroundColor: RISK_COLORS[5] })
   })
 
   it.each([1, 2, 3, 4, 5] as RiskLevel[])(
@@ -44,7 +44,7 @@ describe('RiskBadge', () => {
   it('uses dark text on the amber level-2 badge for contrast', () => {
     render(<RiskBadge level={2} />)
 
-    expect(screen.getByTestId('risk-badge')).toHaveStyle({ color: '#17120E' })
+    expect(screen.getByTestId('risk-badge')).toHaveStyle({ color: RISK_TEXT_COLORS[2] })
   })
 
   it('drops the label but keeps the level in compact mode', () => {

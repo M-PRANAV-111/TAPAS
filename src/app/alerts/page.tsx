@@ -1,6 +1,5 @@
 'use client'
 import { OfficialHelp } from '@/components/help/OfficialHelp'
-import { DataStatus } from '@/components/data/DataStatus'
 
 import { useEffect, useState } from 'react'
 import { AlertCard } from '@/components/alerts/AlertCard'
@@ -12,7 +11,7 @@ import { longDate } from '@/lib/utils'
 
 export default function AlertsPage() {
   const { location, selectedWardId, selectedDate, setSelectedDate, dates } = useLocation()
-  const { data, isLoading: isPending, isError, error, isFetching } = useAlerts(1, 200)
+  const { data, isLoading: isPending, isError, refetch } = useAlerts(1, 200)
   const [level, setLevel] = useState('all')
   const [showExpired, setShowExpired] = useState(false)
   const [now, setNow] = useState(() => Date.now())
@@ -56,11 +55,58 @@ export default function AlertsPage() {
         </label>
         <label className="flex min-h-11 items-center gap-2 text-xs"><input type="checkbox" checked={showExpired} onChange={(event) => setShowExpired(event.target.checked)} />Include expired messages</label>
       </div>
-      <DataStatus label="Alerts" provenance={data?.provenance} refreshing={isFetching} error={error} />
-      {isPending ? <p role="status" className="text-sm tapas-subtext">Loading alerts…</p> : null}
-      {isError ? <p role="status" className="text-sm text-[var(--risk-4)]">{error instanceof Error ? error.message : 'Alert service unavailable.'} This does not mean no warnings exist. Check the official bulletin linked in Government information.</p> : null}
-      {!isPending && !isError && !filtered.length ? <p data-testid="no-alerts" className="rounded-lg border border-border bg-card p-6 text-center text-sm tapas-subtext">{location ? 'No matching messages were returned for this location, date and filter. Missing alerts do not establish safe conditions.' : 'Select a location to check advisories. No scientific alert feed has been requested yet.'}</p> : null}
-      <OfficialHelp location={location} selectedDate={selectedDate} /><div className="space-y-3">{filtered.map((alert) => <AlertCard key={alert.id} alert={alert} now={now} />)}</div>
+      {/* 2c: Structured Alert error state — single rendering in neutral --info, no red risk-4 */}
+      {isError ? (
+        <div className="rounded-xl border border-[var(--line-soft)] bg-[var(--surface-2)] p-5 text-[var(--ink-mid)] my-4">
+          <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--ink-low)] mb-2">ALERTS</div>
+          <div className="flex items-center gap-2 font-semibold text-[var(--ink-high)] text-sm mb-1.5">
+            <span className="text-[var(--info)] text-base font-bold">○</span>
+            <span>Alert feed unavailable</span>
+          </div>
+          <p className="text-xs text-[var(--ink-mid)] leading-relaxed mb-3">
+            TAPAS cannot reach the alert provider right now.<br />
+            This does not mean no warnings are in force.
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => void refetch()}
+              className="inline-flex items-center justify-center rounded-lg border border-[var(--line-firm)] bg-[var(--surface-3)] px-3.5 py-1.5 text-xs font-semibold text-[var(--ink-high)] hover:border-[var(--accent)] transition-colors"
+            >
+              Retry
+            </button>
+            <a
+              href="https://mausam.imd.gov.in"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-[var(--ink-low)] hover:text-[var(--accent)] underline"
+            >
+              Official IMD bulletin ↗
+            </a>
+          </div>
+          <div className="mt-3 text-[11px] text-[var(--ink-low)] font-mono border-t border-[var(--line-hair)] pt-2">
+            Last successful check: {new Date(now).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })} IST
+          </div>
+        </div>
+      ) : null}
+
+      {isPending ? <p role="status" className="text-sm text-[var(--ink-low)] my-4">Loading alerts…</p> : null}
+
+      {/* 2d: Distinct state for No Active Alerts */}
+      {!isPending && !isError && !filtered.length ? (
+        <div data-testid="no-alerts" className="rounded-xl border border-[var(--line-soft)] bg-[var(--surface-1)] p-5 text-[var(--ink-mid)] my-4">
+          <div className="flex items-center gap-2 font-medium text-xs text-[var(--ink-high)]">
+            <span className="text-[var(--info)] text-sm font-bold">○</span>
+            <span>No active heat alerts for this area</span>
+          </div>
+          <p className="mt-1 text-[11px] text-[var(--ink-low)] font-mono pl-4">
+            Checked {new Date(now).toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' })} IST
+          </p>
+        </div>
+      ) : null}
+
+      <OfficialHelp location={location} selectedDate={selectedDate} />
+      <div className="space-y-3">{filtered.map((alert) => <AlertCard key={alert.id} alert={alert} now={now} />)}</div>
     </div>
   )
 }

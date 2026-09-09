@@ -5,11 +5,11 @@ export const APP_LONG_NAME = 'Thermal Analytics & Public-health Advisory System'
 
 /** Hex values mirror the CSS custom properties in globals.css. */
 export const RISK_COLORS: Record<RiskLevel, string> = {
-  1: '#4A7C59',
-  2: '#F6C453',
-  3: '#EA762B',
-  4: '#D3443F',
-  5: '#741E29',
+  1: '#4F7B4A',
+  2: '#C9A227',
+  3: '#DE7629',
+  4: '#C03B2B',
+  5: '#7E1F22',
 }
 
 export const RISK_LABELS: Record<RiskLevel, string> = {
@@ -21,15 +21,15 @@ export const RISK_LABELS: Record<RiskLevel, string> = {
 }
 
 /**
- * Level 2 is amber; cream text on amber fails contrast, so that badge alone
+ * Level 2 is brass; cream text on brass fails contrast, so that badge alone
  * carries near-black text.
  */
 export const RISK_TEXT_COLORS: Record<RiskLevel, string> = {
-  1: '#F4E4CC',
-  2: '#17120E',
-  3: '#F4E4CC',
-  4: '#F4E4CC',
-  5: '#F4E4CC',
+  1: '#F2E3CC',
+  2: '#100C09',
+  3: '#F2E3CC',
+  4: '#F2E3CC',
+  5: '#F2E3CC',
 }
 
 export const RISK_LEVELS: RiskLevel[] = [1, 2, 3, 4, 5]
@@ -37,8 +37,8 @@ export const RISK_LEVELS: RiskLevel[] = [1, 2, 3, 4, 5]
 export const LEGEND_NOTE = 'Colours show supplied risk categories. Grey means unavailable. Classification methodology must come from the source.'
 export const TRANSLATION_DISCLAIMER = 'Source translation — verify before official use'
 export const WBGT_BANDS: Record<WbgtBand, {label:string;color:string}> = {
-  safe: {label:'Source: safe',color:'#4A7C59'}, caution:{label:'Caution',color:'#F6C453'},
-  warning:{label:'Warning',color:'#EA762B'}, danger:{label:'Danger',color:'#D3443F'},
+  safe: {label:'Source: safe',color:'#4F7B4A'}, caution:{label:'Caution',color:'#C9A227'},
+  warning:{label:'Warning',color:'#DE7629'}, danger:{label:'Danger',color:'#C03B2B'},
 }
 export const WBGT_BAND_ORDER: WbgtBand[] = ['safe','caution','warning','danger']
 

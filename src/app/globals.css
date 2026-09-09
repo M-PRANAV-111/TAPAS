@@ -4,43 +4,80 @@
 
 @layer base {
   :root {
-    /* ---- TAPAS design system: dark "ember" palette ---------------------- */
-    --risk-1: #4a7c59; /* Level 1 Low       — muted green */
-    --risk-2: #f6c453; /* Level 2 Moderate  — amber */
-    --risk-3: #ea762b; /* Level 3 High      — orange */
-    --risk-4: #d3443f; /* Level 4 Very High — red */
-    --risk-5: #741e29; /* Level 5 Extreme   — dark maroon */
-    --heat-orange: #ea762b;
-    --heat-crimson: #a92d35;
-    --bg: #0e0b08;              /* page background */
-    --bg-elevated: #2b1e15;     /* popovers, dropdown options, hover surfaces */
-    --border-strong: #67432a;
-    --text: #f4e4cc;
-    --subtext: #c8ad8c;
-    --text-muted: #927b66;      /* quieter than --subtext — meta labels only */
+    /* ---- TAPAS exact furnace & kiln palette ----------------------------- */
+    /* Surfaces — warm charcoal, four deliberate levels */
+    --surface-0: #100C09;   /* page base */
+    --surface-1: #191410;   /* primary panel */
+    --surface-2: #221B15;   /* nested block */
+    --surface-3: #2E251C;   /* elevated: modal, popover, hover */
+
+    /* Lines */
+    --line-hair: #322619;   /* internal dividers — the workhorse */
+    --line-soft: #3F3122;   /* panel borders */
+    --line-firm: #5C452E;   /* focus, active, emphasis */
+
+    /* Type — warm paper, never #FFF */
+    --ink-high: #F2E3CC;    /* headings, primary metrics */
+    --ink-mid: #C4A986;     /* body */
+    --ink-low: #8A7359;     /* labels, units, captions */
+    --ink-faint: #5E4E3D;   /* disabled, placeholder */
+
+    /* THE single accent */
+    --accent: #E2722A;
+    --accent-dim: #A85420;
+    --accent-hover: #EA762B;
+    --accent-foreground: #100C09;
+
+    /* Risk scale — black-body radiation ramp */
+    --risk-1: #4F7B4A;      /* Low       — desaturated sage, deliberately dull */
+    --risk-2: #C9A227;      /* Moderate  — brass, not lemon */
+    --risk-3: #DE7629;      /* High      — ember */
+    --risk-4: #C03B2B;      /* Very High — iron oxide */
+    --risk-5: #7E1F22;      /* Extreme   — deep oxide */
+
+    /* System status — must NEVER use risk colours */
+    --info: #8A7359;        /* provider unavailable, stale, neutral notice */
+    --ok: #4F7B4A;
+
+    /* Semantic UI Aliases mapped to surface & line tokens */
+    --bg-base: var(--surface-0);
+    --bg-primary: var(--surface-1);
+    --bg-secondary: var(--surface-2);
+    --bg-elevated: var(--surface-3);
+    --border-subtle: var(--line-hair);
+    --border-strong: var(--line-soft);
+    --text-primary: var(--ink-high);
+    --text-secondary: var(--ink-mid);
+    --text-muted: var(--ink-low);
+    --accent-deep: #7E1F22;
+
+    /* Legacy compatibility aliases */
+    --heat-orange: #DE7629;
+    --heat-crimson: #7E1F22;
+    --bg: #100C09;
+    --text: #F2E3CC;
+    --subtext: #C4A986;
     --font: var(--font-inter), 'Inter', system-ui, sans-serif;
 
-    /* ---- shadcn/ui tokens, tuned to the ember palette above -------------- */
-    --background: 30 27% 4%;
-    --foreground: 36 65% 88%;
-    --card: 27 24% 7%;
-    --card-foreground: 36 65% 88%;
-    --popover: 25 34% 13%;
-    --popover-foreground: 36 65% 88%;
-    --primary: 24 82% 54%;
-    --primary-foreground: 28 48% 5%;
-    --secondary: 26 32% 10%;
-    --secondary-foreground: 36 65% 88%;
-    --muted: 26 32% 10%;
-    --muted-foreground: 29 18% 49%;
-    --accent: 25 34% 13%;
-    --accent-foreground: 36 65% 88%;
-    --destructive: 356 58% 42%;
-    --destructive-foreground: 36 65% 88%;
-    --border: 26 41% 16%;
-    --input: 26 41% 16%;
-    --ring: 24 82% 54%;
-    --radius: 0.5rem;
+    /* ---- shadcn/ui tokens mapped to warm charcoal/parchment --------------- */
+    --background: 24 28% 5%;
+    --foreground: 36 62% 87%;
+    --card: 27 22% 8%;
+    --card-foreground: 36 62% 87%;
+    --popover: 28 24% 14%;
+    --popover-foreground: 36 62% 87%;
+    --primary: 23 76% 52%;
+    --primary-foreground: 24 28% 5%;
+    --secondary: 27 22% 11%;
+    --secondary-foreground: 36 62% 87%;
+    --muted: 27 22% 11%;
+    --muted-foreground: 32 22% 44%;
+    --destructive: 6 62% 46%;
+    --destructive-foreground: 36 62% 87%;
+    --border: 32 34% 15%;
+    --input: 32 34% 15%;
+    --ring: 23 76% 52%;
+    --radius: 0.625rem; /* 10px default radius (two radii only: 10px & 14px) */
   }
 
   * {
@@ -49,59 +86,101 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    color-scheme: dark;
   }
 
   body {
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
     padding-bottom: env(safe-area-inset-bottom);
-    background-color: var(--bg);
-    color: var(--text);
+    background-color: var(--bg-base);
+    color: var(--text-primary);
     font-family: var(--font);
+    font-variant-numeric: tabular-nums;
     @apply antialiased;
   }
 
-  /* Keyboard focus must stay visible on every interactive surface — these
-     screens get used one-handed in the field. */
+  /* Keyboard focus outline */
   :focus-visible {
     @apply outline-none ring-2 ring-offset-2;
-    --tw-ring-color: var(--heat-orange);
+    --tw-ring-color: var(--accent);
+    --tw-ring-offset-color: var(--bg-base);
   }
 }
 
 @layer components {
   .tapas-card {
-    background-color: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    @apply rounded-lg;
+    background-color: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
   }
 
   .tapas-subtext {
-    color: var(--subtext);
+    color: var(--text-secondary);
+  }
+
+  /* Hairline-divided grid system */
+  .hairline-grid {
+    display: grid;
+    gap: 1px;
+    background-color: var(--border-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+
+  .hairline-cell {
+    background-color: var(--bg-primary);
+    padding: 1rem;
+  }
+
+  .hairline-cell-elevated {
+    background-color: var(--bg-secondary);
+    padding: 1rem;
+  }
+
+  /* Typography standards */
+  .metric-large {
+    font-size: clamp(2.125rem, 4vw, 3.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.025em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
   }
 }
 
-/* MapLibre popups inherit the app's type and palette rather than the
-   library's default white box. */
+/* MapLibre popups override library defaults globally */
 .maplibregl-popup-content {
-  max-width: min(280px, 75vw);
-  overflow-wrap: anywhere;
-  font-family: var(--font);
-  padding: 0.5rem 0.625rem;
-  border-radius: 0.5rem;
-  border: 1px solid hsl(var(--border));
-  background-color: hsl(var(--popover));
-  color: hsl(var(--popover-foreground));
-  box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
+  background: var(--surface-3) !important;
+  border: 1px solid var(--line-soft) !important;
+  border-radius: 10px !important;
+  padding: 0 !important;
+  color: var(--ink-mid) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+  max-width: 260px;
+  overflow: hidden;
 }
-
 .maplibregl-popup-tip {
-  border-top-color: hsl(var(--popover)) !important;
-  border-bottom-color: hsl(var(--popover)) !important;
+  border-top-color: var(--surface-3) !important;
 }
-
 .maplibregl-popup-close-button {
-  color: hsl(var(--popover-foreground));
+  color: var(--ink-low) !important;
+  font-size: 18px !important;
+  padding: 6px 9px !important;
+  background: transparent !important;
+  border: none !important;
+}
+.maplibregl-popup-close-button:hover {
+  color: var(--ink-high) !important;
+  background: transparent !important;
 }
 
 .maplibregl-ctrl-attrib {

@@ -14,7 +14,8 @@ import { ScheduleTable } from '@/components/occupational/ScheduleTable'
 import { Button } from '@/components/ui/button'
 import { useOccupational } from '@/hooks/useWard'
 import { useRiskMap } from '@/hooks/useRiskMap'
-import { longDate } from '@/lib/utils'
+import { longDate, cn } from '@/lib/utils'
+import { WardSelector } from '@/components/ward/WardSelector'
 
 export default function OccupationalPage() {
   const { location, selectedWardId, selectWard, selectedDate, setSelectedDate, dates } = useLocation()
@@ -34,24 +35,36 @@ export default function OccupationalPage() {
       </header>
       <div className="no-print mb-4 space-y-3">
         <LocationSearch />
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="grid max-w-full gap-1 text-xs font-medium">
-            Covered ward
-            <select className="h-11 max-w-full rounded-md border border-border bg-card px-2 text-sm" value={selectedWardId ?? ''} onChange={(event) => selectWard(event.target.value || null)}>
-              <option value="">Select a ward with available data</option>
-              {selectedWardId && !wards.some((ward) => ward.ward_id === selectedWardId) ? <option value={selectedWardId}>{wardName}</option> : null}
-              {wards.map((ward) => <option key={ward.ward_id} value={ward.ward_id}>{ward.ward_name}</option>)}
-            </select>
-          </label>
-          <label className="grid gap-1 text-xs font-medium">
-            Forecast date
-            <select className="h-11 rounded-md border border-border bg-card px-2 text-sm" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)}>
-              {(dates.includes(selectedDate) ? dates : [...dates, selectedDate].sort()).map((date) => <option key={date} value={date}>{longDate(date)}</option>)}
-            </select>
-          </label>
+        <div className="flex flex-wrap items-start gap-4">
+          <WardSelector
+            wards={wards.map((w) => ({ ward_id: w.ward_id, ward_name: w.ward_name, risk_level: w.risk_level }))}
+            selectedWardId={selectedWardId}
+            onSelectWard={selectWard}
+            label="Covered ward"
+            className="flex-1 min-w-[280px]"
+          />
+
+          <div className="flex flex-col gap-1 text-xs font-medium">
+            <span className="block text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--ink-low)] mb-0.5">Forecast date</span>
+            <div className="flex flex-wrap gap-1.5 rounded-lg border border-[var(--line-soft)] bg-[var(--surface-2)] p-1">
+              {(dates.includes(selectedDate) ? dates : [...dates, selectedDate].sort()).map((date) => (
+                <button
+                  key={date}
+                  type="button"
+                  onClick={() => setSelectedDate(date)}
+                  className={cn(
+                    'px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors font-variant-numeric tabular-nums',
+                    date === selectedDate
+                      ? 'bg-[var(--surface-3)] text-[var(--ink-high)] border border-[var(--accent)] font-semibold'
+                      : 'text-[var(--ink-mid)] hover:text-[var(--ink-high)] hover:bg-[var(--surface-1)]'
+                  )}
+                >
+                  {longDate(date)}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
-        {!selectedWardId ? <p className="text-xs tapas-subtext">{location ? `No ward selected for ${location.name}. Select a covered ward when its risk service provides one.` : 'Choose a location, then a ward with supplied occupational data.'}</p> : null}
-        {riskMap.isError ? <p role="status" className="text-xs tapas-subtext">Ward coverage unavailable. Place search remains available.</p> : null}
       </div>
       <div className="print-page space-y-4"><WeatherKpis /><Precautions heatIndex={heatIndexCelsius(reading?.temperature, reading?.humidity)} selectedDate={selectedDate} />
         <div className="rounded-lg border border-border bg-card p-3 sm:p-4">

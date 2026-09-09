@@ -6,18 +6,14 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   const { id } = await props.params
-  const spots = DEMO_COOLING_SPOTS[id] || []
 
   return NextResponse.json({
     ward_id: id,
-    cooling_spots: spots,
-    count: spots.length,
-    is_demo: true,
-    empty_state_reason:
-      spots.length === 0
-        ? 'No verified cooling-centre dataset available for this ward.'
-        : undefined,
-    source: 'Municipal Heat Action Plan & Ground Survey',
+    cooling_spots: [],
+    count: 0,
+    is_demo: false,
+    empty_state_reason: 'No verified cooling-centre dataset available for this zone.',
+    source: 'Municipal Data Verification',
     updated_at: new Date().toISOString(),
   })
 }

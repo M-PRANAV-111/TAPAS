@@ -112,7 +112,7 @@
 }
 
 .motionControl:hover { color: var(--access-cream); }
-.brand:focus-visible, .motionControl:focus-visible, .passwordToggle:focus-visible, .demoHint:focus-visible, .publicLink:focus-visible, .submitButton:focus-visible { outline: 2px solid var(--access-accent); outline-offset: 4px; }
+.brand:focus-visible, .motionControl:focus-visible, .passwordToggle:focus-visible, .demoHint:focus-visible, .publicLink:focus-visible, .submitButton:focus-visible, .roleTab:focus-visible { outline: 2px solid var(--access-accent); outline-offset: 4px; }
 
 .formPanel {
   display: flex;
@@ -152,6 +152,52 @@
 .spinner { animation: spin 1s linear infinite; }
 .loading { display: grid; min-height: calc(100svh - 3.5rem); place-items: center; padding: 2rem; background: #090d10; color: #bab5ac; font-size: 0.8rem; }
 
+.roleTabs {
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding: 0.25rem;
+  margin-bottom: 1.5rem;
+  background: #090d10b0;
+  border: 1px solid #dac39c22;
+  border-radius: 7px;
+}
+
+.roleTab {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0.4rem 0.75rem;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--access-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+  transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+  cursor: pointer;
+}
+
+.roleTab:hover {
+  color: var(--access-cream);
+}
+
+.roleTab > svg { flex-shrink: 0; }
+.roleTab > span { overflow-wrap: anywhere; }
+.roleTab:disabled { cursor: wait; opacity: 0.6; }
+
+.roleTabActive {
+  background: #20272c;
+  color: var(--access-cream);
+  border-color: #dac39c33;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  font-weight: 600;
+}
+
 @keyframes landscapeArrival { from { transform: translateX(5%) scale(1.04); opacity: 0.65; } to { transform: translateX(0) scale(1); opacity: 1; } }
 @keyframes formArrival { from { transform: translateX(18px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -177,6 +223,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   .artwork > div, .formInner, .spinner { animation: none; }
-  .input, .submitButton { transition: none; }
+  .input, .submitButton, .roleTab { transition: none; }
   .motionControl { display: none; }
 }

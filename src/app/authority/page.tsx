@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import {
   Download,
@@ -19,8 +19,11 @@ import {
   DEMO_PATIENT_SIGNALS,
 } from '@/data/seedData'
 import { RISK_COLORS, RISK_LABELS } from '@/lib/constants'
+import { clampRiskLevel } from '@/lib/utils'
 import { useRiskMap, useWardGeojson } from '@/hooks/useRiskMap'
-import type { WardRisk } from '@/lib/types'
+import { HealthcareReadiness } from '@/components/health/HealthcareReadiness'
+import { operationalService } from '@/lib/service'
+import type { WardRisk, HealthcareFacility } from '@/lib/types'
 
 const HeatMap = dynamic(() => import('@/components/map/HeatMap'), {
   ssr: false,
@@ -31,10 +34,60 @@ const HeatMap = dynamic(() => import('@/components/map/HeatMap'), {
   ),
 })
 
+interface MandalRanking {
+  mandal_id: string
+  mandal_name: string
+  wards_count: number
+  highest_risk_level: number
+  max_utci: number
+  avg_utci: number
+  projected_excess_deaths: number
+  active_operations_count: number
+  priority_rank: number
+}
+
 function AuthorityCommandContent() {
   const { location, selectedDate, selectWard, selectedWardId } = useLocation()
   const geojson = useWardGeojson()
   const riskMap = useRiskMap(selectedDate)
+  const [backendRankings, setBackendRankings] = useState<MandalRanking[] | null>(null)
+  const [backendOverview, setBackendOverview] = useState<any | null>(null)
+  const [healthFacilities, setHealthFacilities] = useState<HealthcareFacility[]>([])
+
+  const selectedWard = useMemo(
+    () => DEMO_WARDS.find((w) => w.ward_id === selectedWardId),
+    [selectedWardId]
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    const wardId = selectedWardId || 'ward-42-kukatpally'
+    operationalService.getHealthStatus(wardId).then((res) => {
+      if (!cancelled && res?.facilities) {
+        setHealthFacilities(res.facilities)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedWardId])
+
+  useEffect(() => {
+    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'
+    fetch(`${base}/api/authority/rankings`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (Array.isArray(d) && d.length > 0) setBackendRankings(d)
+      })
+      .catch(() => {})
+
+    fetch(`${base}/api/authority/overview`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && typeof d === 'object') setBackendOverview(d)
+      })
+      .catch(() => {})
+  }, [])
   const fallbackWards: WardRisk[] = useMemo(
     () =>
       DEMO_WARDS.map((w) => ({
@@ -100,7 +153,7 @@ function AuthorityCommandContent() {
   }
 
   return (
-    <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 pb-12">
       {/* Executive Command Header */}
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-subtle)] pb-5">
         <div>
@@ -136,40 +189,40 @@ function AuthorityCommandContent() {
         <div className="hairline-cell p-4 sm:p-5">
           <span className="metric-label text-[var(--risk-4)]">Active Escalations</span>
           <div className="text-3xl font-extrabold tabular-nums text-[var(--risk-4)] mt-2">
-            {criticalMandals} <span className="text-sm font-medium text-[var(--text-muted)]">/ {DEMO_WARDS.length}</span>
+            {backendOverview?.critical_mandals_count ?? criticalMandals} <span className="text-sm font-medium text-[var(--text-muted)]">/ {backendOverview?.total_mandals ?? DEMO_WARDS.length}</span>
           </div>
           <span className="text-[11px] font-bold text-[var(--risk-4)] uppercase block mt-1">
-            Level 5 Extreme Mandals
+            {backendOverview ? 'High-Risk Mandals' : 'Level 5 Extreme Mandals'}
           </span>
         </div>
 
         <div className="hairline-cell p-4 sm:p-5">
           <span className="metric-label text-[var(--text-secondary)]">District Exposed Population</span>
           <div className="text-3xl font-extrabold tabular-nums text-[var(--text-primary)] mt-2">
-            {totalPopulation.toLocaleString()}
+            {(backendOverview?.population_covered ?? totalPopulation).toLocaleString()}
           </div>
           <span className="text-[11px] text-[var(--text-muted)] block mt-1">
-            4 Administrative Zones Monitored
+            {backendOverview?.district_name ?? '4 Administrative Zones Monitored'}
           </span>
         </div>
 
         <div className="hairline-cell p-4 sm:p-5">
-          <span className="metric-label text-[var(--text-secondary)]">Aggregated Patient Load</span>
+          <span className="metric-label text-[var(--text-secondary)]">Projected Excess Deaths</span>
           <div className="text-3xl font-extrabold tabular-nums text-[var(--accent)] mt-2">
-            56 <span className="text-sm font-medium text-[var(--text-muted)]">+84% Surge</span>
+            {backendOverview ? backendOverview.total_excess_deaths.toFixed(2) : '56'} <span className="text-sm font-medium text-[var(--text-muted)]">{backendOverview ? 'deaths/day' : '+84% Surge'}</span>
           </div>
           <span className="text-[11px] text-[var(--text-muted)] block mt-1">
-            Across 5 district health clusters
+            {backendOverview ? `Range: ${backendOverview.total_ed_low} – ${backendOverview.total_ed_high}` : 'Across 5 district health clusters'}
           </span>
         </div>
 
         <div className="hairline-cell p-4 sm:p-5">
-          <span className="metric-label text-[var(--text-secondary)]">Deployed Misting Fleet</span>
+          <span className="metric-label text-[var(--text-secondary)]">Active District Operations</span>
           <div className="text-3xl font-extrabold tabular-nums text-emerald-400 mt-2">
-            4 / 4 <span className="text-sm font-medium text-[var(--text-muted)]">Active</span>
+            {backendOverview?.active_operations_count ?? 4} <span className="text-sm font-medium text-[var(--text-muted)]">Active</span>
           </div>
           <span className="text-[11px] text-[var(--text-muted)] block mt-1">
-            100% fleet utilization in critical zones
+            {backendOverview ? `Command: ${backendOverview.command_status}` : '100% fleet utilization in critical zones'}
           </span>
         </div>
       </section>
@@ -202,7 +255,7 @@ function AuthorityCommandContent() {
         <div className="hairline-cell border-b border-[var(--border-subtle)] p-4 sm:p-5 flex items-center justify-between">
           <div>
             <h3 id="mandal-rankings-heading" className="metric-label text-[var(--text-secondary)]">
-              Mandal-Level Command Priority Index
+              Mandal-Level Command Priority Index {backendRankings ? '(Live Backend Engine)' : ''}
             </h3>
             <p className="text-xs text-[var(--text-muted)] mt-0.5">
               Weighted composite of thermal stress, demographic vulnerability, and resource deficiency.
@@ -224,7 +277,60 @@ function AuthorityCommandContent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-subtle)] text-[var(--text-primary)]">
-              {DEMO_WARDS.map((ward) => {
+              {backendRankings ? backendRankings.map((mandal) => {
+                const lvl = clampRiskLevel(mandal.highest_risk_level) ?? 4
+                const color = RISK_COLORS[lvl]
+                return (
+                  <tr key={mandal.mandal_id} className="hover:bg-[var(--bg-secondary)]/50 transition-colors">
+                    <td className="py-3 px-4">
+                      <div className="font-semibold text-[var(--text-primary)]">{mandal.mandal_name}</div>
+                      <div className="text-[10px] text-[var(--text-muted)] font-mono">
+                        {mandal.wards_count} ward(s) · {mandal.active_operations_count} active op(s)
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4">
+                      <span
+                        className="rounded px-2 py-0.5 text-[10px] font-bold uppercase"
+                        style={{
+                          backgroundColor: `${color}25`,
+                          color: color,
+                          border: `1px solid ${color}60`,
+                        }}
+                      >
+                        L{lvl} · {RISK_LABELS[lvl]}
+                      </span>
+                    </td>
+
+                    <td className="py-3 px-4 font-mono font-bold tabular-nums text-sm text-[var(--text-primary)]">
+                      Rank #{mandal.priority_rank} <span className="text-[10px] text-[var(--text-muted)] font-normal font-sans">({mandal.max_utci} °C UTCI)</span>
+                    </td>
+
+                    <td className="py-3 px-4 tabular-nums text-[var(--text-secondary)]">
+                      {(mandal.wards_count * 65000).toLocaleString()} <span className="text-[10px] text-[var(--text-muted)]">est.</span>
+                    </td>
+
+                    <td className="py-3 px-4 tabular-nums text-[var(--accent)] font-semibold">
+                      {mandal.projected_excess_deaths} deaths/day
+                    </td>
+
+                    <td className="py-3 px-4 tabular-nums text-[var(--text-muted)]">
+                      {mandal.avg_utci.toFixed(1)} °C avg
+                    </td>
+
+                    <td className="py-3 px-4 text-right">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => selectWard(mandal.mandal_id === 'mandal-kukatpally' ? 'HYD-001' : mandal.mandal_id === 'mandal-amberpet' ? 'HYD-005' : 'HYD-004')}
+                        className="min-h-8 px-2.5 text-xs border-[var(--border-subtle)] bg-[var(--bg-elevated)] hover:border-[var(--accent)] text-[var(--text-primary)]"
+                      >
+                        Select <ArrowUpRight className="ml-1 h-3 w-3" />
+                      </Button>
+                    </td>
+                  </tr>
+                )
+              }) : DEMO_WARDS.map((ward) => {
                 const color = RISK_COLORS[ward.risk_level]
 
                 return (
@@ -296,7 +402,7 @@ function AuthorityCommandContent() {
           </div>
         </div>
 
-        <div className="h-[520px] w-full">
+        <div className="w-full">
           <HeatMap
             location={location}
             selectedDate={selectedDate}
@@ -308,6 +414,13 @@ function AuthorityCommandContent() {
           />
         </div>
       </section>
+
+      {/* 4. District Healthcare Surge Readiness & Medical Alerts */}
+      <HealthcareReadiness
+        facilities={healthFacilities}
+        wardName={selectedWard ? selectedWard.name : 'District Health Command'}
+        canReportSurge={true}
+      />
 
       {/* 4. Fleet & Notification Rollups */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

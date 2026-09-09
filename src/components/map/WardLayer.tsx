@@ -142,15 +142,19 @@ export function WardLayer({
       promoteId: 'ward_id',
     })
 
+    const labelLayer = map.getStyle()?.layers?.find(
+      (l) => l.type === 'symbol' || l.id === 'dark_labels' || l.id.includes('label')
+    )?.id
+
     map.addLayer({
       id: WARD_FILL_LAYER,
       type: 'fill',
       source: WARD_SOURCE_ID,
       paint: {
         'fill-color': FILL_COLOR,
-        'fill-opacity': 0.65,
+        'fill-opacity': 0.35,
       },
-    })
+    }, labelLayer)
 
     map.addLayer({
       id: WARD_BORDER_LAYER,
@@ -160,7 +164,7 @@ export function WardLayer({
         'line-color': '#0E0B08',
         'line-width': 0.8,
       },
-    })
+    }, labelLayer)
 
     map.addLayer({
       id: WARD_SELECTED_LAYER,
@@ -171,7 +175,7 @@ export function WardLayer({
         'line-color': '#F4E4CC',
         'line-width': 2.5,
       },
-    })
+    }, labelLayer)
   }, [map])
 
   // Repaint when the day changes. Data only — layers stay put.

@@ -295,7 +295,7 @@ export interface Community extends BaseOperationalRecord {
 }
 
 export interface Official extends BaseOperationalRecord {
-  designation: 'Ward Member' | 'MRO' | 'Health Officer' | 'Community Head' | 'Municipal Commissioner'
+  designation: 'Ward Member' | 'MRO' | 'Health Officer' | 'Community Head' | 'Municipal Commissioner' | string
   available: boolean
   phone_masked: string
   raw_contact?: string
@@ -306,6 +306,7 @@ export interface ASHAWorker extends BaseOperationalRecord {
   on_duty: boolean
   assigned_households: number
   phone_masked: string
+  raw_contact?: string
 }
 
 export type MistingTeamStatus = 'Available' | 'Assigned' | 'En Route' | 'Completed'
@@ -421,5 +422,6 @@ export interface ExplainableRiskScore {
     detail: string
   }[]
   methodology: string
+  derivation_note?: string | null
 }
 

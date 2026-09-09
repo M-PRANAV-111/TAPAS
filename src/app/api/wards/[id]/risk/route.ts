@@ -6,6 +6,15 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   const { id } = await props.params
+  const backendBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  try {
+    const res = await fetch(`${backendBase}/api/risk/${id}?days=1`, { cache: 'no-store' })
+    if (res.ok) {
+      const data = await res.json()
+      return NextResponse.json(data)
+    }
+  } catch {}
+
   const ward = DEMO_WARDS.find((w) => w.ward_id === id) || DEMO_WARDS[0]
   const breakdown = DEMO_EXPLAINABLE_RISK[id] || DEMO_EXPLAINABLE_RISK['ward-42-kukatpally']
 

@@ -110,12 +110,10 @@ const SCALE_PRESETS = [
 
 export function ThermalScene({
   role,
-  onRoleChange,
   mode = 'explore',
   paused = false,
 }: {
   role: EntryRole
-  onRoleChange?: (index: number) => void
   mode?: 'explore' | 'access'
   paused?: boolean
 }) {
@@ -127,8 +125,6 @@ export function ThermalScene({
   const roleIndex = Math.max(0, ENTRY_ROLES.findIndex((r) => r.id === role))
   const roleIndexRef = useRef(roleIndex)
   roleIndexRef.current = roleIndex
-
-  const isAccessMode = mode === 'access'
 
   // Real-time camera transformation state for interactive zoom and pan
   const cameraRef = useRef({

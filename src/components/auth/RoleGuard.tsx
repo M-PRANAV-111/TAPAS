@@ -12,7 +12,7 @@ export function RoleGuard({ role, children }: { role: DemoRole; children: ReactN
 
   useEffect(() => {
     if (current !== undefined && current !== role) {
-      router.replace(`/login?${selectionQuery}`)
+      router.replace(`/login?role=${role}&${selectionQuery}`)
     }
   }, [current, role, router, selectionQuery])
 

@@ -30,15 +30,62 @@ export default function ResponderPage() {
   const [showNoteInput, setShowNoteInput] = useState(false)
 
   useEffect(() => {
-    let op = getStoredOperation()
-    if (!op) op = createDefaultOperation()
-    setOperation(op)
-
-    const found = op.recipients.find((r) => r.token.toLowerCase() === token.toLowerCase())
-    setRecipient(found || op.recipients[1]) // fallback to ASHA worker
+    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'
+    fetch(`${base}/api/respond/${encodeURIComponent(token)}`)
+      .then((res) => {
+        if (!res.ok) throw new Error('Token not found')
+        return res.json()
+      })
+      .then((data) => {
+        setRecipient({
+          id: data.recipient_id,
+          name: data.name || 'Assigned Responder',
+          role: data.recipient_type === 'asha' ? 'ASHA Worker Lead' : data.recipient_type === 'ward_member' ? 'Ward Member' : data.recipient_type === 'labour_union' ? 'Labour Welfare Inspector' : data.recipient_type === 'healthcare' ? 'PHC Medical Officer' : 'Field Responder',
+          group: data.recipient_type === 'asha' ? 'asha_mro' : data.recipient_type === 'ward_member' ? 'ward_officials' : data.recipient_type === 'labour_union' ? 'workers' : data.recipient_type === 'healthcare' ? 'healthcare' : 'public',
+          phone: data.phone,
+          token: data.token,
+          channels: ['in_app', 'whatsapp'],
+          deliveryStatus: (data.delivery_status?.toUpperCase() || 'DELIVERED') as any,
+          operationalStatus: (data.operational_status?.toUpperCase() || 'NOT_ACKNOWLEDGED') as OperationalStatus,
+          dispatchedAt: 'Live Field Dispatch',
+          responseNote: data.message_body,
+        })
+        setOperation((prev) => ({
+          ...(prev || createDefaultOperation(data.ward_id, data.ward_name)),
+          id: data.operation_id,
+          wardId: data.ward_id,
+          wardName: data.ward_name || data.ward_id,
+          riskLevel: data.alert_level || 5,
+        }))
+      })
+      .catch(() => {
+        let op = getStoredOperation()
+        if (!op) op = createDefaultOperation()
+        setOperation(op)
+        const found = op.recipients.find((r) => r.token.toLowerCase() === token.toLowerCase())
+        setRecipient(found || op.recipients[1])
+      })
   }, [token])
 
-  const handleAction = (status: OperationalStatus, actionLabel: string) => {
+  const handleAction = async (status: OperationalStatus, actionLabel: string) => {
+    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'
+    const actionMap: Record<string, string> = {
+      ACKNOWLEDGED: 'acknowledge',
+      IN_PROGRESS: 'start',
+      NEEDS_ASSISTANCE: 'help',
+      COMPLETED: 'complete',
+    }
+    const backendAction = actionMap[status] || 'acknowledge'
+    try {
+      await fetch(`${base}/api/respond/${encodeURIComponent(recipient?.token || token)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: backendAction }),
+      })
+    } catch {
+      // Offline fallback
+    }
+
     updateOperationalStatus(recipient?.token || token, status, note || actionLabel)
     setLastAction(`Action recorded: ${actionLabel} at ${new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })}`)
     const updated = getStoredOperation()
@@ -46,6 +93,8 @@ export default function ResponderPage() {
       setOperation(updated)
       const found = updated.recipients.find((r) => r.token.toLowerCase() === token.toLowerCase())
       if (found) setRecipient(found)
+    } else if (recipient) {
+      setRecipient({ ...recipient, operationalStatus: status })
     }
     setShowNoteInput(false)
     setNote('')

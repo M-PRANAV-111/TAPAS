@@ -10,7 +10,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./vitest.setup.ts'],
+    env: {
+      NEXT_PUBLIC_API_URL: 'http://localhost:8000',
+    },
+    setupFiles: [path.resolve(__dirname, './vitest.setup.ts')],
     include: ['src/tests/**/*.test.{ts,tsx}', 'src/lib/thermal/__tests__/**/*.test.ts'],
     exclude: ['src/tests/e2e/**', 'node_modules/**'],
     css: false,

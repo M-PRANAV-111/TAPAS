@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { Hospital, Send, CheckCircle2, Clock, CheckCheck, AlertCircle } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Hospital, Send, CheckCircle2, Clock, CheckCheck, AlertCircle, Plus, X, Activity, AlertTriangle } from 'lucide-react'
 import type { HealthcareFacility, FacilityReadinessState } from '@/lib/types'
+import { useDemoRole } from '@/lib/auth/demoAuth'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +12,7 @@ interface HealthcareReadinessProps {
   wardName?: string
   className?: string
   onNotifyFacility?: (facilityId: string) => void
+  canReportSurge?: boolean
 }
 
 export function HealthcareReadiness({
@@ -18,7 +20,11 @@ export function HealthcareReadiness({
   wardName = 'Ward 42, Kukatpally',
   className,
   onNotifyFacility,
+  canReportSurge,
 }: HealthcareReadinessProps) {
+  const role = useDemoRole()
+  const isOfficerOrAuthority = canReportSurge ?? (role === 'officer' || role === 'authority')
+  const [facilityList, setFacilityList] = useState<HealthcareFacility[]>(facilities)
   const [facilityStates, setFacilityStates] = useState<Record<string, FacilityReadinessState>>(() => {
     const map: Record<string, FacilityReadinessState> = {}
     for (const f of facilities) {
@@ -28,6 +34,19 @@ export function HealthcareReadiness({
   })
 
   const [simulatingId, setSimulatingId] = useState<string | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [targetFacilityId, setTargetFacilityId] = useState<string>(facilities[0]?.id || '')
+  const [admissionsCount, setAdmissionsCount] = useState('12')
+  const [surgeLevel, setSurgeLevel] = useState<HealthcareFacility['heat_risk_status']>('Severe')
+  const [bedOccupancy, setBedOccupancy] = useState('88%')
+
+  // Sync facility prop changes
+  useEffect(() => {
+    setFacilityList(facilities)
+    if (facilities.length > 0 && !targetFacilityId) {
+      setTargetFacilityId(facilities[0].id)
+    }
+  }, [facilities])
 
   const handleAdvanceState = (facilityId: string) => {
     setSimulatingId(facilityId)
@@ -46,6 +65,25 @@ export function HealthcareReadiness({
     }, 450)
   }
 
+  const handleReportSurge = (e: React.FormEvent) => {
+    e.preventDefault()
+    setFacilityList((prev) =>
+      prev.map((f) => {
+        if (f.id === targetFacilityId) {
+          return {
+            ...f,
+            heat_risk_status: surgeLevel,
+            status: `Active Surge (${admissionsCount} cases, ${bedOccupancy} beds)`,
+            notification_state: 'SENT',
+          }
+        }
+        return f
+      })
+    )
+    setFacilityStates((prev) => ({ ...prev, [targetFacilityId]: 'SENT' }))
+    setModalOpen(false)
+  }
+
   return (
     <section
       aria-labelledby="healthcare-readiness-heading"
@@ -53,7 +91,7 @@ export function HealthcareReadiness({
     >
       {/* Header */}
       <div className="hairline-cell border-b border-[var(--border-subtle)] p-4 sm:p-5">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="flex h-5 w-5 items-center justify-center rounded bg-[var(--risk-4)] text-[var(--bg-base)]">
               <Hospital className="h-3.5 w-3.5" aria-hidden="true" />
@@ -62,9 +100,20 @@ export function HealthcareReadiness({
               Healthcare Facility Surge Readiness
             </h3>
           </div>
-          <span className="rounded bg-[var(--bg-secondary)] border border-[var(--border-subtle)] px-2.5 py-0.5 text-xs text-[var(--text-muted)]">
-            {wardName}
-          </span>
+          <div className="flex items-center gap-2.5">
+            <span className="rounded bg-[var(--bg-secondary)] border border-[var(--border-subtle)] px-2.5 py-0.5 text-xs text-[var(--text-muted)]">
+              {wardName}
+            </span>
+            {isOfficerOrAuthority && (
+              <Button
+                size="sm"
+                onClick={() => setModalOpen(true)}
+                className="h-8 bg-[var(--risk-4)] text-black hover:opacity-90 text-xs font-bold px-2.5"
+              >
+                <Activity className="mr-1.5 h-3.5 w-3.5" /> + Report Facility Surge
+              </Button>
+            )}
+          </div>
         </div>
         <p className="mt-1 text-xs text-[var(--text-muted)]">
           Monitors hospital, PHC and CHC readiness status and operational transmission logs.
@@ -84,7 +133,7 @@ export function HealthcareReadiness({
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--border-subtle)] text-[var(--text-primary)]">
-            {facilities.map((fac) => {
+            {facilityList.map((fac) => {
               const currentState = facilityStates[fac.id] ?? fac.notification_state
               const isSimulating = simulatingId === fac.id
 
@@ -112,7 +161,7 @@ export function HealthcareReadiness({
                   <td className="py-3 px-4">
                     <div className="font-semibold text-[var(--text-primary)]">{fac.name}</div>
                     <div className="text-[11px] text-[var(--text-muted)]">
-                      {fac.bed_capacity_label} · {fac.status}
+                      {fac.bed_capacity_label || 'Bed Capacity: Unavailable'} · {fac.source ? `Source: ${fac.source}` : 'OpenStreetMap Verified'}
                     </div>
                   </td>
 
@@ -136,32 +185,38 @@ export function HealthcareReadiness({
                   <td className="py-3 px-4">{stateBadge}</td>
 
                   <td className="py-3 px-4 text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={isSimulating || currentState === 'ACKNOWLEDGED'}
-                      onClick={() => handleAdvanceState(fac.id)}
-                      className={cn(
-                        'min-h-8 px-2.5 text-xs border-[var(--border-subtle)] bg-[var(--bg-elevated)]',
-                        currentState === 'ACKNOWLEDGED'
-                          ? 'opacity-60 cursor-default'
-                          : 'text-[var(--text-primary)] hover:border-[var(--accent)]'
-                      )}
-                    >
-                      {isSimulating ? (
-                        'Updating…'
-                      ) : currentState === 'NOT_SENT' ? (
-                        <>
-                          <Send className="mr-1 h-3 w-3 text-[var(--accent)]" /> Send Surge Alert
-                        </>
-                      ) : currentState === 'SENT' ? (
-                        'Confirm Delivery'
-                      ) : currentState === 'DELIVERED' ? (
-                        'Acknowledge Reception'
-                      ) : (
-                        'Acknowledged'
-                      )}
-                    </Button>
+                    {isOfficerOrAuthority ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={isSimulating || currentState === 'ACKNOWLEDGED'}
+                        onClick={() => handleAdvanceState(fac.id)}
+                        className={cn(
+                          'min-h-8 px-2.5 text-xs border-[var(--border-subtle)] bg-[var(--bg-elevated)]',
+                          currentState === 'ACKNOWLEDGED'
+                            ? 'opacity-60 cursor-default'
+                            : 'text-[var(--text-primary)] hover:border-[var(--accent)]'
+                        )}
+                      >
+                        {isSimulating ? (
+                          'Updating…'
+                        ) : currentState === 'NOT_SENT' ? (
+                          <>
+                            <Send className="mr-1 h-3 w-3 text-[var(--accent)]" /> Send Surge Alert
+                          </>
+                        ) : currentState === 'SENT' ? (
+                          'Confirm Delivery'
+                        ) : currentState === 'DELIVERED' ? (
+                          'Acknowledge Reception'
+                        ) : (
+                          'Acknowledged'
+                        )}
+                      </Button>
+                    ) : (
+                      <span className="text-[11px] font-mono text-[var(--text-muted)]">
+                        {currentState}
+                      </span>
+                    )}
                   </td>
                 </tr>
               )
@@ -169,6 +224,110 @@ export function HealthcareReadiness({
           </tbody>
         </table>
       </div>
+
+      {/* Surge Reporting Modal Dialog */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-6 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+              <h4 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Activity className="h-4 w-4 text-[var(--risk-4)]" /> Report Facility Heat Surge
+              </h4>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleReportSurge} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  Target Healthcare Facility
+                </label>
+                <select
+                  value={targetFacilityId}
+                  onChange={(e) => setTargetFacilityId(e.target.value)}
+                  className="w-full rounded border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+                >
+                  {facilityList.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} ({f.bed_capacity_label})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                  Surge Severity Level
+                </label>
+                <select
+                  value={surgeLevel}
+                  onChange={(e) => setSurgeLevel(e.target.value as any)}
+                  className="w-full rounded border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+                >
+                  <option value="Low">Low — Normal Baseline Capacity</option>
+                  <option value="Moderate">Moderate — Rising Heat Exhaustion Cases (+25%)</option>
+                  <option value="High">High — Heightened Influx (+40%)</option>
+                  <option value="Severe">Severe — Emergency Heat Stroke Influx (+50%)</option>
+                  <option value="Critical">Critical — Full Capacity / ER Overrun (+100%)</option>
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Heat Influx Cases Today
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min="0"
+                    value={admissionsCount}
+                    onChange={(e) => setAdmissionsCount(e.target.value)}
+                    className="w-full rounded border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                    Emergency Bed Occupancy
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={bedOccupancy}
+                    onChange={(e) => setBedOccupancy(e.target.value)}
+                    placeholder="e.g. 92%"
+                    className="w-full rounded border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-3 py-2 text-xs text-[var(--text-primary)] focus:border-[var(--accent)] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-[var(--border-subtle)]">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setModalOpen(false)}
+                  className="text-xs"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  className="bg-[var(--risk-4)] text-black hover:opacity-90 text-xs font-bold"
+                >
+                  Submit Surge Alert
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   )
 }

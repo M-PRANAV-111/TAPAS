@@ -18,11 +18,13 @@ import { HealthcareReadiness } from '@/components/health/HealthcareReadiness'
 import { PatientLoadCard } from '@/components/health/PatientLoadCard'
 import { ExplainableRisk } from '@/components/risk/ExplainableRisk'
 import { LocalResponseNetwork } from '@/components/help/LocalResponseNetwork'
+import { BroadcastRecipients } from '@/components/broadcast/BroadcastRecipients'
 import { WardSelector } from '@/components/ward/WardSelector'
 import { LocationSearch } from '@/components/location/LocationSearch'
 import { ActiveOperationBanner } from '@/components/operations/ActiveOperationBanner'
 import { MobilisationReviewModal } from '@/components/operations/MobilisationReviewModal'
 import { OperationalFollowthrough } from '@/components/operations/OperationalFollowthrough'
+import { storeBackendOperation } from '@/lib/operationsStore'
 import { NotificationCenter } from '@/components/operations/NotificationModal'
 import { Button } from '@/components/ui/button'
 import { operationalService } from '@/lib/service'
@@ -48,7 +50,7 @@ import { useResources } from '@/hooks/useResources'
 const HeatMap = dynamic(() => import('@/components/map/HeatMap'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[520px] w-full items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] text-xs text-[var(--text-muted)]">
+    <div className="flex min-h-[560px] w-full items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-base)] text-xs text-[var(--text-muted)]">
       Loading operational map…
     </div>
   ),
@@ -167,23 +169,33 @@ function OfficerDashboardContent() {
   const [mobilisationModalOpen, setMobilisationModalOpen] = useState(false)
   const [operationDetailsOpen, setOperationDetailsOpen] = useState(false)
 
-  const handleConfirmActivation = (data: { reference: string; groups: string[]; capXml: string }) => {
-    fetch('/api/response/activate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ward_id: currentWard.ward_id,
-        ward_name: currentWard.name,
-        reference: data.reference,
-        risk_level: currentWard.risk_level,
-        groups: data.groups,
-      }),
-    }).catch(() => {})
+  const handleConfirmActivation = async (data: { reference: string; groups: string[]; capXml: string }) => {
+    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'
+    try {
+      const res = await fetch(`${base}/api/response/activate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          ward_id: currentWard.ward_id,
+          ward_name: currentWard.name,
+          reference: data.reference,
+          risk_level: currentWard.risk_level,
+          groups: data.groups,
+        }),
+      })
+      if (res.ok) {
+        const backendOp = await res.json()
+        storeBackendOperation(backendOp, currentWard.name)
+      }
+    } catch {
+      // Fallback to local operation if backend unavailable
+    }
     setOperationDetailsOpen(true)
   }
 
   return (
-    <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 pb-12">
       {/* Officer Operational Command Bar */}
       <header className="space-y-4 border-b border-[var(--border-subtle)] pb-5 no-print">
         <div className="flex flex-wrap items-center justify-between gap-4">
@@ -225,31 +237,28 @@ function OfficerDashboardContent() {
           </div>
         </div>
 
-        {/* Location Auto-Detect, Place Search & Ward Jurisdiction Bar */}
-        <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 items-start bg-[var(--surface-1)] p-4 rounded-xl border border-[var(--line-soft)]">
-          <div className="min-w-0">
-            <LocationSearch />
-          </div>
-          <div className="min-w-0 space-y-2">
+        {/* Ward Jurisdiction Bar */}
+        <div className="bg-[var(--surface-1)] p-4 rounded-xl border border-[var(--line-soft)] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="min-w-0 space-y-1">
             <label className="block text-sm font-semibold text-[var(--ink-high)]">
               Mandal Ward Jurisdiction
             </label>
-            <div className="flex h-11 items-center">
-              <WardSelector
-                label=""
-                wards={DEMO_WARDS.map((w) => ({
-                  ward_id: w.ward_id,
-                  ward_name: `${w.name} (Risk L${w.risk_level})`,
-                  risk_level: w.risk_level,
-                }))}
-                selectedWardId={currentWardId}
-                onSelectWard={(id) => id && selectWard(id)}
-                className="w-full"
-              />
-            </div>
             <p className="text-xs text-[var(--ink-low)] truncate">
               Administrative boundary dataset · {currentWard.name}
             </p>
+          </div>
+          <div className="w-full sm:w-72">
+            <WardSelector
+              label=""
+              wards={DEMO_WARDS.map((w) => ({
+                ward_id: w.ward_id,
+                ward_name: `${w.name} (Risk L${w.risk_level})`,
+                risk_level: w.risk_level,
+              }))}
+              selectedWardId={currentWardId}
+              onSelectWard={(id) => id && selectWard(id)}
+              className="w-full"
+            />
           </div>
         </div>
       </header>
@@ -363,6 +372,11 @@ function OfficerDashboardContent() {
         wardName={currentWard.name}
       />
 
+      {/* 8. Broadcast Recipients Management & Real Dispatch */}
+      <BroadcastRecipients
+        zoneName={currentWard.name}
+      />
+
       {/* 8. Resource Gap & Ward Map */}
       <section aria-label="Operational Ward Map" className="hairline-grid p-4 sm:p-5 no-print">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -376,7 +390,12 @@ function OfficerDashboardContent() {
           </div>
         </div>
 
-        <div className="h-[520px] w-full">
+        {/* Location Auto-Detect & Search Bar directly above the map */}
+        <div className="mb-4 bg-[var(--surface-1)] p-3 rounded-xl border border-[var(--line-soft)]">
+          <LocationSearch />
+        </div>
+
+        <div className="w-full">
           <HeatMap
             location={location}
             selectedDate={selectedDate}

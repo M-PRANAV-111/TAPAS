@@ -11,6 +11,7 @@ import {
   getStoredOperation,
   createDefaultOperation,
   updateOperationalStatus,
+  storeBackendOperation,
   type EmergencyOperation,
   type OperationalStatus,
 } from '@/lib/operationsStore'
@@ -43,7 +44,26 @@ export function OperationalFollowthrough({
       setOperation(getStoredOperation())
     }
     window.addEventListener('tapas_operation_updated', handleUpdate)
-    return () => window.removeEventListener('tapas_operation_updated', handleUpdate)
+
+    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'
+    const interval = setInterval(async () => {
+      const current = getStoredOperation()
+      if (!current?.id) return
+      try {
+        const res = await fetch(`${base}/api/response/${encodeURIComponent(current.id)}`, { credentials: 'include' })
+        if (res.ok) {
+          const live = await res.json()
+          storeBackendOperation(live, wardName)
+        }
+      } catch {
+        // ignore
+      }
+    }, 2500)
+
+    return () => {
+      window.removeEventListener('tapas_operation_updated', handleUpdate)
+      clearInterval(interval)
+    }
   }, [wardId, wardName])
 
   if (!isOpen || !operation) return null
@@ -262,7 +282,15 @@ export function OperationalFollowthrough({
 
                           {/* Quick Manual Transition for Officer Override */}
                           <td className="p-3 text-right">
-                            <div className="inline-flex gap-1">
+                            <div className="inline-flex items-center gap-1.5">
+                              <a
+                                href={`/respond/${encodeURIComponent(r.token)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="px-2 py-1 rounded bg-[var(--surface-2)] hover:bg-[var(--surface-3)] text-[10.5px] text-[var(--accent)] border border-[var(--line-soft)] font-medium underline"
+                              >
+                                Open Task
+                              </a>
                               <button
                                 type="button"
                                 title="Acknowledge response"

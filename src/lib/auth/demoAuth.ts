@@ -19,4 +19,14 @@ function subscribe(callback: () => void) {
 }
 export function useDemoRole() { return useSyncExternalStore(subscribe, read, (): undefined => undefined) }
 export function signInDemo(role: DemoRole) { localStorage.setItem(KEY, role); window.dispatchEvent(new Event(EVENT)) }
-export function signOutDemo() { localStorage.removeItem(KEY); window.dispatchEvent(new Event(EVENT)) }
+export function signOutDemo(): boolean {
+  try {
+    localStorage.removeItem(KEY)
+  } catch {
+    // A readable session must not be reported as cleared when removal fails.
+    // If reads are blocked too, the app already treats the session as signed out.
+    if (read() !== null) return false
+  }
+  window.dispatchEvent(new Event(EVENT))
+  return true
+}

@@ -17,7 +17,9 @@ import {
   DEMO_MISTING_TEAMS,
   DEMO_ACTION_RECOMMENDATIONS,
   DEMO_NOTIFICATIONS,
+  DEMO_WARDS,
 } from '@/data/seedData'
+import { getNearbyCoolingSpots, getLocalResponseNetwork } from '@/lib/coolingSpots'
 import type {
   CoolingSpot,
   Official,
@@ -52,6 +54,39 @@ async function safeFetch<T>(url: string, fallback: T): Promise<T> {
 
 export const operationalService = {
   getThermalStress: async (wardId: string): Promise<HumanThermalStressBreakdown> => {
+    const apiBase = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') : 'http://localhost:8000'
+    try {
+      const forecastRes = await safeFetch<{ hourly?: Array<{ air_temp?: number; relative_humidity?: number; wind_speed?: number; mrt?: number; utci?: number }> }>(
+        `${apiBase}/api/forecast/${encodeURIComponent(wardId)}`,
+        {}
+      )
+      const hours = forecastRes.hourly || []
+      if (hours.length > 0) {
+        // Find midday peak or latest hour
+        const sample = hours[12] || hours[0]
+        const utci = sample.utci ?? 37.5
+        const airTemp = sample.air_temp ?? 31.5
+        const rh = sample.relative_humidity ?? 55
+        const wind = sample.wind_speed ?? 3.2
+        const mrt = sample.mrt ?? 61.2
+        const score = utci <= 9 ? 1.0 : utci <= 26 ? (1.0 + ((utci - 9) / 17) * 2.5) : utci <= 32 ? (3.5 + ((utci - 26) / 6) * 2.5) : utci <= 38 ? (6.0 + ((utci - 32) / 6) * 2.0) : utci <= 46 ? (8.0 + ((utci - 38) / 8) * 1.5) : Math.min(10.0, 9.5 + ((utci - 46) / 10) * 0.5)
+        const category: HumanThermalStressBreakdown['category'] = utci >= 46 ? 'EXTREME' : utci >= 38 ? 'VERY HIGH' : utci >= 32 ? 'HIGH' : utci >= 26 ? 'MODERATE' : 'LOW'
+        return {
+          score_0_10: Number(score.toFixed(1)),
+          category,
+          air_temp: Number(airTemp.toFixed(1)),
+          rh: Number(rh.toFixed(1)),
+          wind: Number(wind.toFixed(1)),
+          mrt: Number(mrt.toFixed(1)),
+          felt_temperature: Number(utci.toFixed(1)),
+          factors: { air_temp_pct: 35, rh_pct: 25, wind_pct: 10, mrt_pct: 30 },
+          why_high: `Calculated from COST 730 UTCI model: ${utci.toFixed(1)}°C with ${airTemp.toFixed(1)}°C air temperature and ${rh.toFixed(0)}% humidity.`,
+          method: 'COST Action 730 Universal Thermal Climate Index (UTCI) model',
+        }
+      }
+    } catch {
+      // Continue to fallback
+    }
     const fallback = DEMO_THERMAL_STRESS[wardId] || DEMO_THERMAL_STRESS['ward-42-kukatpally']
     const res = await safeFetch<{ thermal_stress: HumanThermalStressBreakdown }>(
       `/api/wards/${encodeURIComponent(wardId)}/thermal-stress`,
@@ -69,23 +104,30 @@ export const operationalService = {
     return res.breakdown
   },
 
-  getCoolingSpots: async (wardId: string): Promise<CoolingSpot[]> => {
-    const fallback = DEMO_COOLING_SPOTS[wardId] || []
+  getCoolingSpots: async (
+    wardId: string,
+    origin?: { latitude: number; longitude: number },
+    zoneName?: string
+  ): Promise<CoolingSpot[]> => {
+    const ward = DEMO_WARDS.find((w) => w.ward_id === wardId)
+    const coords = origin ?? (ward ? { latitude: ward.latitude, longitude: ward.longitude } : { latitude: 17.4933, longitude: 78.4018 })
+    const fallback = getNearbyCoolingSpots(coords, zoneName ?? ward?.name ?? wardId, wardId)
     const res = await safeFetch<{ cooling_spots: CoolingSpot[] }>(
       `/api/wards/${encodeURIComponent(wardId)}/cooling-spots`,
       { cooling_spots: fallback }
     )
-    return res.cooling_spots
+    return res.cooling_spots && res.cooling_spots.length > 0 ? res.cooling_spots : fallback
   },
 
   getCommunityNetwork: async (
-    wardId: string
+    wardId: string,
+    zoneName?: string
   ): Promise<{ officials: Official[]; asha_workers: ASHAWorker[] }> => {
-    const officials = DEMO_OFFICIALS[wardId] || DEMO_OFFICIALS['ward-42-kukatpally'] || []
-    const asha_workers = DEMO_ASHA_WORKERS[wardId] || DEMO_ASHA_WORKERS['ward-42-kukatpally'] || []
+    const ward = DEMO_WARDS.find((w) => w.ward_id === wardId)
+    const fallback = getLocalResponseNetwork(zoneName ?? ward?.name ?? wardId, wardId)
     const res = await safeFetch<{ officials: Official[]; asha_workers: ASHAWorker[] }>(
       `/api/wards/${encodeURIComponent(wardId)}/community-network`,
-      { officials, asha_workers }
+      fallback
     )
     return res
   },

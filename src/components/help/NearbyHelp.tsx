@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useOnlineStatus } from '@/hooks/useOnlineStatus'
-import { Droplets, ExternalLink, Hospital, House, MapPin, Navigation, Phone, Snowflake, SprayCan } from 'lucide-react'
+import { Droplets, ExternalLink, Hospital, House, MapPin, Navigation, Phone, Pill, Snowflake, SprayCan } from 'lucide-react'
 import type { SelectedLocation } from '@/lib/location'
 import { directionsUrl, filterResources, phoneHref, RESOURCE_LABELS, RESOURCE_RADIUS_KM, type ResourceCategory, type SafetyResource } from '@/lib/resources'
 import { Button } from '@/components/ui/button'
@@ -26,8 +26,8 @@ export interface NearbyHelpProps {
   limitations?: string[]
   onRetry?: () => void
 }
-const ICONS = { cooling: Snowflake, water: Droplets, medical: Hospital, shelter: House, emergency: Hospital, misting: SprayCan }
-const categories: ResourceCategory[] = ['all', 'cooling', 'water', 'medical', 'shelter', 'emergency', 'misting']
+const ICONS = { cooling: Snowflake, water: Droplets, medical: Hospital, pharmacy: Pill, shelter: House, emergency: Hospital, misting: SprayCan }
+const categories: ResourceCategory[] = ['all', 'cooling', 'water', 'medical', 'pharmacy', 'shelter', 'emergency', 'misting']
 
 function ResourceCard({ resource, location, selected, onSelect }: { resource: SafetyResource; location: SelectedLocation; selected: boolean; onSelect?: (resource: SafetyResource) => void }) {
   const Icon = ICONS[resource.category]

@@ -219,6 +219,53 @@ export function createDefaultOperation(wardId = 'ward-42-kukatpally', wardName =
   }
 }
 
+export function storeBackendOperation(backendOp: any, fallbackWardName?: string): EmergencyOperation {
+  const recipients: OperationRecipient[] = (backendOp.recipients || []).map((r: any) => ({
+    id: r.id,
+    name: r.name || 'Assigned Responder',
+    role: r.recipient_type === 'asha' ? 'ASHA Worker Lead' : r.recipient_type === 'ward_member' ? 'Ward Member' : r.recipient_type === 'labour_union' ? 'Labour Welfare Inspector' : r.recipient_type === 'healthcare' ? 'PHC Medical Officer' : 'Field Responder',
+    group: r.recipient_type === 'asha' ? 'asha_mro' : r.recipient_type === 'ward_member' ? 'ward_officials' : r.recipient_type === 'labour_union' ? 'workers' : r.recipient_type === 'healthcare' ? 'healthcare' : 'public',
+    phone: r.phone,
+    token: r.action_token,
+    channels: ['in_app', 'whatsapp', 'sms'],
+    deliveryStatus: (r.delivery_status?.toUpperCase() || 'SENT') as DeliveryStatus,
+    operationalStatus: (r.operational_status?.toUpperCase() || 'NOT_ACKNOWLEDGED') as OperationalStatus,
+    providerMessageId: r.provider_message_id,
+    dispatchedAt: new Date(backendOp.activated_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) + ' IST',
+    acknowledgedAt: r.operational_status === 'acknowledged' ? 'Acknowledged' : undefined,
+  }))
+
+  const timeline: OperationTimelineEntry[] = (backendOp.timeline || []).map((t: any) => ({
+    id: String(t.id),
+    time: t.created_at ? new Date(t.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '12:00',
+    text: `${t.event_type.toUpperCase()}: ${t.detail || t.actor || ''}`,
+    isWarning: t.event_type === 'escalated',
+  }))
+
+  const op: EmergencyOperation = {
+    id: backendOp.reference_id || backendOp.operation_id || backendOp.id,
+    wardId: backendOp.ward_id,
+    wardName: fallbackWardName || backendOp.ward_name || backendOp.ward_id,
+    riskLevel: backendOp.alert_level || 5,
+    riskWindow: backendOp.risk_window_start && backendOp.risk_window_end ? `${new Date(backendOp.risk_window_start).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })} – ${new Date(backendOp.risk_window_end).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })} IST` : 'Today 12:00 – 18:00 IST',
+    peakStressTime: '14:30 IST',
+    thermalStressScore: 8.7,
+    utciTemp: 43.1,
+    populationExposed: 124000,
+    expectedImpact: 'Projected excess mortality risk mitigated by active response protocol.',
+    whyWard: ['+ High thermal stress', '+ Active officer escalation', '+ Priority response mobilized'],
+    activatedAt: new Date(backendOp.activated_at || Date.now()).getTime(),
+    activatedBy: backendOp.activated_by || 'Municipal Officer',
+    status: backendOp.status === 'completed' ? 'COMPLETED' : 'ACTIVE',
+    recipients: recipients.length ? recipients : INITIAL_DEMO_RECIPIENTS,
+    timeline: timeline.length ? timeline : INITIAL_DEMO_TIMELINE,
+    capXml: backendOp.cap_xml,
+    autoEscalated: backendOp.status === 'escalated',
+  }
+  saveOperation(op)
+  return op
+}
+
 /**
  * Updates an operational response status (called from /respond/[token], officer UI, or Twilio inbound)
  */
@@ -236,7 +283,7 @@ export function updateOperationalStatus(
   const cleanId = identifier.trim().toLowerCase()
 
   const newRecipients = op.recipients.map((r) => {
-    if (r.token === cleanId || r.phone.replace(/\D/g, '').endsWith(cleanId.replace(/\D/g, ''))) {
+    if (r.token === cleanId || r.token?.toLowerCase() === cleanId || r.phone.replace(/\D/g, '').endsWith(cleanId.replace(/\D/g, ''))) {
       updated = true
       return {
         ...r,
@@ -248,6 +295,22 @@ export function updateOperationalStatus(
     }
     return r
   })
+
+  if (typeof window !== 'undefined') {
+    const base = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:8000'
+    const actionMap: Record<string, string> = {
+      ACKNOWLEDGED: 'acknowledge',
+      IN_PROGRESS: 'start',
+      NEEDS_ASSISTANCE: 'help',
+      COMPLETED: 'complete',
+    }
+    const backendAction = actionMap[status] || 'acknowledge'
+    fetch(`${base}/api/respond/${encodeURIComponent(cleanId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: backendAction }),
+    }).catch(() => {})
+  }
 
   if (updated) {
     const timeStr = new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })

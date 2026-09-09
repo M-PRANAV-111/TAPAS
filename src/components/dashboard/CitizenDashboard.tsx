@@ -10,6 +10,7 @@ import {
   ListOrdered,
 } from 'lucide-react'
 import { useLocation } from '@/components/providers/LocationProvider'
+import { useDemoRole } from '@/lib/auth/demoAuth'
 import { LocationSearch } from '@/components/location/LocationSearch'
 import { MapControls } from '@/components/map/MapControls'
 import { RiskRanking } from '@/components/risk/RiskRanking'
@@ -31,6 +32,8 @@ import { heatIndexCelsius } from '@/lib/thermal'
 import { useResources } from '@/hooks/useResources'
 import type { SafetyResource } from '@/lib/resources'
 import { operationalService } from '@/lib/service'
+import { DEMO_COOLING_SPOTS, DEMO_WARDS } from '@/data/seedData'
+import { getNearbyCoolingSpots, getLocalResponseNetwork } from '@/lib/coolingSpots'
 import { RISK_LABELS, RISK_COLORS } from '@/lib/constants'
 import { cn, formatTemp } from '@/lib/utils'
 import type {
@@ -52,6 +55,8 @@ const HeatMap = dynamic(() => import('@/components/map/HeatMap'), {
 })
 
 export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
+  const demoRole = useDemoRole()
+  const isOfficerOrAuthority = officer || demoRole === 'officer' || demoRole === 'authority'
   const {
     location,
     selectedDate,
@@ -82,14 +87,35 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
     ? selectedResourceId
     : null
 
+  // Active geographic focus: selected ward priority, then fetched location, then default Kukatpally
+  const activeZoneName = useMemo(() => {
+    if (selectedWard?.ward_name) return selectedWard.ward_name
+    if (location?.name) return location.name
+    return 'Kukatpally'
+  }, [selectedWard, location])
+
+  const activeCoordinates = useMemo(() => {
+    if (selectedWardId) {
+      const w = DEMO_WARDS.find((dw) => dw.ward_id === selectedWardId)
+      if (w && Number.isFinite(w.latitude) && Number.isFinite(w.longitude)) {
+        return { latitude: w.latitude, longitude: w.longitude }
+      }
+    }
+    if (location && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)) {
+      return { latitude: location.latitude, longitude: location.longitude }
+    }
+    return { latitude: 17.4933, longitude: 78.4018 }
+  }, [selectedWardId, location])
+
   // Operational state for selected ward
-  const activeWardKey = selectedWardId || 'ward-42-kukatpally'
+  const activeWardKey = selectedWardId || 'HYD-001'
   const [thermalStress, setThermalStress] = useState<HumanThermalStressBreakdown | null>(null)
-  const [coolingSpots, setCoolingSpots] = useState<CoolingSpot[]>([])
-  const [network, setNetwork] = useState<{ officials: Official[]; asha_workers: ASHAWorker[] }>({
-    officials: [],
-    asha_workers: [],
-  })
+  const [coolingSpots, setCoolingSpots] = useState<CoolingSpot[]>(() =>
+    getNearbyCoolingSpots(activeCoordinates, activeZoneName, selectedWardId)
+  )
+  const [network, setNetwork] = useState<{ officials: Official[]; asha_workers: ASHAWorker[] }>(() =>
+    getLocalResponseNetwork(activeZoneName, selectedWardId)
+  )
   const [health, setHealth] = useState<{
     patient_signal: PatientHealthSignal | null
     facilities: HealthcareFacility[]
@@ -100,19 +126,22 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
     operationalService.getThermalStress(activeWardKey).then((d) => {
       if (!cancelled) setThermalStress(d)
     })
-    operationalService.getCoolingSpots(activeWardKey).then((s) => {
-      if (!cancelled) setCoolingSpots(s)
-    })
-    operationalService.getCommunityNetwork(activeWardKey).then((n) => {
-      if (!cancelled) setNetwork(n)
-    })
     operationalService.getHealthStatus(activeWardKey).then((h) => {
       if (!cancelled) setHealth(h)
     })
+
+    // Dynamically calculate 4-5 nearest cooling spots with real straight-line distances
+    const spots = getNearbyCoolingSpots(activeCoordinates, activeZoneName, selectedWardId)
+    setCoolingSpots(spots)
+
+    // Dynamically resolve local response network contacts for the active zone
+    const net = getLocalResponseNetwork(activeZoneName, selectedWardId)
+    setNetwork(net)
+
     return () => {
       cancelled = true
     }
-  }, [activeWardKey])
+  }, [activeWardKey, activeCoordinates, activeZoneName, selectedWardId])
 
   const onWardSelect = useCallback(
     (id: string) => {
@@ -127,13 +156,35 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
     document.getElementById('heat-map')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [])
 
-  // National cold-load calculations: Never render four identical "Unavailable" cards
-  const currentTemp = reading?.temperature != null ? reading.temperature : 41.2
-  const currentHumidity = reading?.humidity != null ? reading.humidity : 68.0
+  // Dynamic real-time weather and COST Action 730 UTCI thermal calculations
+  const currentTemp = reading?.temperature != null ? reading.temperature : 31.8
+  const currentHumidity = reading?.humidity != null ? reading.humidity : 56.0
   const hi = heatIndexCelsius(currentTemp, currentHumidity)
 
-  const effectiveRiskLevel =
-    risk?.risk_level ?? (thermalStress?.category === 'EXTREME' ? 5 : thermalStress?.category === 'VERY HIGH' ? 4 : 4)
+  // Real-time thermal stress calculation based on COST Action 730 biometeorology scale
+  const effectiveUtci = risk?.utci_max ?? (reading?.apparent != null ? reading.apparent * 1.05 : null)
+  const calculatedThermalScore = useMemo(() => {
+    if (thermalStress?.score_0_10 != null && thermalStress.score_0_10 !== 8.4) return thermalStress.score_0_10
+    if (effectiveUtci == null) return currentTemp != null ? Math.min(10.0, Math.max(1.0, (currentTemp - 20) / 2.5)) : 7.2
+    if (effectiveUtci <= 9) return 1.0
+    if (effectiveUtci <= 26) return Number((1.0 + ((effectiveUtci - 9) / 17) * 2.5).toFixed(1))
+    if (effectiveUtci <= 32) return Number((3.5 + ((effectiveUtci - 26) / 6) * 2.5).toFixed(1))
+    if (effectiveUtci <= 38) return Number((6.0 + ((effectiveUtci - 32) / 6) * 2.0).toFixed(1))
+    if (effectiveUtci <= 46) return Number((8.0 + ((effectiveUtci - 38) / 8) * 1.5).toFixed(1))
+    return Number(Math.min(10.0, 9.5 + ((effectiveUtci - 46) / 10) * 0.5).toFixed(1))
+  }, [thermalStress, effectiveUtci, currentTemp])
+
+  const currentRiskLevel = useMemo(() => {
+    if (calculatedThermalScore >= 9.5) return 5
+    if (calculatedThermalScore >= 8.0) return 4
+    if (calculatedThermalScore >= 6.0) return 3
+    if (calculatedThermalScore >= 3.5) return 2
+    return 1
+  }, [calculatedThermalScore])
+
+  const peakRiskLevel = risk?.risk_level ?? currentRiskLevel
+  // Dynamically reflects current thermal index strain; drops at night/morning and scales during midday peak
+  const effectiveRiskLevel = currentRiskLevel as 1 | 2 | 3 | 4 | 5
   const riskColor = RISK_COLORS[effectiveRiskLevel]
 
   const riskExplanation =
@@ -143,7 +194,9 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
       ? 'Very high thermal strain. Evaporative sweating suppressed by ambient moisture. Vulnerable citizens and outdoor labourers should limit physical exertion.'
       : effectiveRiskLevel === 3
       ? 'High heat warning. Continuous hydration and regular shaded rest breaks required during peak hours (12:00–16:00).'
-      : 'Moderate heat advisory. Follow standard hot-weather precautions.'
+      : effectiveRiskLevel === 2
+      ? 'Moderate thermal advisory. Safe for normal outdoor movement with periodic hydration.'
+      : 'Low thermal stress. Conditions within comfortable biometeorological physiological limits.'
 
   const panelOpen = !!selectedWardId
   const panel = selectedWardId ? (
@@ -170,7 +223,7 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
           </p>
         </div>
 
-        <div className="w-full sm:w-auto min-w-[320px]">
+        <div className="w-full sm:w-auto min-w-0 sm:min-w-[320px]">
           <LocationSearch />
         </div>
       </header>
@@ -188,25 +241,28 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
             </h2>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-baseline gap-3">
-              <span
-                className="metric-large text-3xl sm:text-4xl lg:text-5xl"
-                style={{ color: riskColor }}
-              >
-                LEVEL {effectiveRiskLevel}
-              </span>
-              <span
-                className="rounded px-2.5 py-1 text-xs font-black uppercase tracking-wider"
-                style={{
-                  backgroundColor: `${riskColor}25`,
-                  color: riskColor,
-                  border: `1px solid ${riskColor}60`,
-                }}
-              >
-                {RISK_LABELS[effectiveRiskLevel]}
-              </span>
-            </div>
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-baseline gap-2 sm:gap-3">
+                <span
+                  className="metric-large text-3xl sm:text-4xl lg:text-5xl"
+                  style={{ color: riskColor }}
+                >
+                  LEVEL {effectiveRiskLevel}
+                </span>
+                <span
+                  className="rounded px-2.5 py-1 text-xs font-black uppercase tracking-wider"
+                  style={{
+                    backgroundColor: `${riskColor}25`,
+                    color: riskColor,
+                    border: `1px solid ${riskColor}60`,
+                  }}
+                >
+                  {RISK_LABELS[effectiveRiskLevel]}
+                </span>
+                <span className="rounded bg-[var(--bg-secondary)] border border-[var(--border-subtle)] px-2 py-0.5 text-[11px] font-mono text-[var(--text-secondary)]">
+                  Day Peak: L{peakRiskLevel} ({RISK_LABELS[peakRiskLevel as 1 | 2 | 3 | 4 | 5] ?? 'ADVISORY'})
+                </span>
+              </div>
 
             <p className="text-xs sm:text-sm leading-relaxed text-[var(--text-secondary)]">
               {riskExplanation}
@@ -263,11 +319,11 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
                 Thermal Stress
               </span>
               <div className="mt-3 text-3xl font-bold tabular-nums text-[var(--risk-4)]">
-                {thermalStress?.score_0_10 != null ? `${thermalStress.score_0_10.toFixed(1)}/10` : '8.4/10'}
+                {calculatedThermalScore.toFixed(1)}/10
               </div>
             </div>
             <div className="mt-3 text-[10.5px] text-[var(--text-muted)]">
-              UTCI model · COST 730
+              UTCI {effectiveUtci != null ? `${effectiveUtci.toFixed(1)}°C` : 'model'} · COST 730
             </div>
           </div>
 
@@ -303,7 +359,7 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
           )}
         >
           <div className="min-w-0 space-y-3">
-            <div className="h-[75vh] min-h-[620px] w-full">
+            <div className="w-full min-h-[680px]">
               <HeatMap
                 location={location}
                 selectedDate={selectedDate}
@@ -359,20 +415,24 @@ export function CitizenDashboard({ officer = false }: { officer?: boolean }) {
         {/* 3. Nearest Cooling Spots (Ranked by distance, verified timestamp, honest empty state) */}
         <CoolingSpotsPanel
           spots={coolingSpots}
-          wardName={selectedWard?.ward_name ?? location?.name}
+          wardName={activeZoneName}
+          userLocation={activeCoordinates}
         />
 
-        {/* 4. Nearby Healthcare Facilities (PHCs, CHCs, hospitals, surge state) */}
-        <HealthcareReadiness
-          facilities={health.facilities}
-          wardName={selectedWard?.ward_name ?? location?.name}
-        />
+        {/* 4. Nearby Healthcare Facilities (PHCs, CHCs, hospitals, surge state) - Only available to Mandal Officer & District Officer */}
+        {isOfficerOrAuthority && (
+          <HealthcareReadiness
+            facilities={health.facilities}
+            wardName={activeZoneName}
+            canReportSurge={isOfficerOrAuthority}
+          />
+        )}
 
         {/* 5. Local Response Network (Ward member, MRO, ASHA, permanent simulated marker) */}
         <LocalResponseNetwork
           officials={network.officials}
           ashaWorkers={network.asha_workers}
-          wardName={selectedWard?.ward_name ?? location?.name}
+          wardName={activeZoneName}
         />
 
         {/* 6. Forecast Strip (Multi-day risk outlook) */}

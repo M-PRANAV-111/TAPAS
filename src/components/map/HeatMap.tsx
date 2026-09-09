@@ -12,7 +12,7 @@ import { ThermalLayer } from '@/components/map/ThermalLayer'
 import { WardLayer, bboxOf } from '@/components/map/WardLayer'
 import { RISK_COLORS } from '@/lib/constants'
 import { locationKey, type SelectedLocation } from '@/lib/location'
-import type { SafetyResource } from '@/lib/resources'
+import { getDefaultFacilities, type SafetyResource } from '@/lib/resources'
 import type { WardCollection, WardRisk } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -77,21 +77,56 @@ export default function HeatMap({
   const instanceRef = useRef<MapLibreMap | null>(null)
   const [map, setMap] = useState<MapLibreMap | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Dedicated layer visibility toggles
   const [riskVisible, setRiskVisible] = useState(true)
-  const [resourcesVisible, setResourcesVisible] = useState(true)
+  const [waterVisible, setWaterVisible] = useState(true)
+  const [commercialVisible, setCommercialVisible] = useState(true)
+  const [hospitalsVisible, setHospitalsVisible] = useState(true)
 
   const risks = useMemo(() => new Map(wards.map((w) => [w.ward_id, w])), [wards])
   const key = locationKey(location)
 
-  // Top 5 hottest wards for the floating ranking overlay
+  // Hottest wards for quick navigation
   const hottestWards = useMemo(() => {
     return [...wards]
-      .filter((w) => w.risk_level !== null)
-      .sort((a, b) => (b.risk_level ?? 0) - (a.risk_level ?? 0) || (b.utci_max ?? 0) - (a.utci_max ?? 0))
+      .filter((w) => typeof w.risk_level === 'number')
+      .sort((a, b) => (b.risk_level ?? 0) - (a.risk_level ?? 0))
       .slice(0, 5)
   }, [wards])
 
-  // Initialize MapLibre
+  // Aggregate resources: merge queried resources with comprehensive default network
+  const defaultFacilities = useMemo(() => getDefaultFacilities(location), [location])
+  const activePool = useMemo(() => {
+    if (!resources || resources.length === 0) return defaultFacilities
+    const poolMap = new Map<string, SafetyResource>()
+    for (const d of defaultFacilities) poolMap.set(d.id, d)
+    for (const r of resources) poolMap.set(r.id, r)
+    return Array.from(poolMap.values())
+  }, [resources, defaultFacilities])
+
+  const counts = useMemo(() => {
+    let water = 0
+    let cooling = 0
+    let medical = 0
+    for (const r of activePool) {
+      if (r.category === 'water') water++
+      else if (r.category === 'cooling') cooling++
+      else if (r.category === 'medical') medical++
+    }
+    return { water, cooling, medical, total: activePool.length }
+  }, [activePool])
+
+  const displayedResources = useMemo(() => {
+    return activePool.filter((r) => {
+      if (r.category === 'water') return waterVisible
+      if (r.category === 'cooling') return commercialVisible
+      if (r.category === 'medical') return hospitalsVisible
+      return true
+    })
+  }, [activePool, waterVisible, commercialVisible, hospitalsVisible])
+
+  // Initialize MapLibre in sleek dark theme
   useEffect(() => {
     if (!container.current || instanceRef.current) return
     let instance: MapLibreMap
@@ -99,8 +134,10 @@ export default function HeatMap({
       instance = new maplibregl.Map({
         container: container.current,
         style: BASE_STYLE,
-        center: [78.9629, 21.5937], // Tight center on India
-        zoom: 4.2,
+        center: [80.5, 22],
+        zoom: 3.5,
+        minZoom: 3,
+        maxZoom: 18,
         attributionControl: { compact: true },
         dragRotate: false,
         pitchWithRotate: false,
@@ -113,8 +150,14 @@ export default function HeatMap({
     instanceRef.current = instance
     instance.touchZoomRotate.disableRotation()
     instance.keyboard.disableRotation()
-    instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right')
-    instance.once('style.load', () => setMap(instance))
+    instance.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+    const handleReady = () => setMap(instance)
+    if (instance.isStyleLoaded()) {
+      handleReady()
+    } else {
+      instance.once('style.load', handleReady)
+    }
+
     instance.on('error', (event) => {
       if (event.error.message.includes('WebGL')) {
         setError('Map rendering failed. Accessible data lists remain available.')
@@ -128,6 +171,7 @@ export default function HeatMap({
       observer.disconnect()
       instance.remove()
       instanceRef.current = null
+      setMap(null)
     }
   }, [])
 
@@ -135,7 +179,7 @@ export default function HeatMap({
   useEffect(() => {
     if (!map) return
     if (!location) {
-      map.flyTo({ center: [78.9629, 21.5937], zoom: 4.2, duration: 1200 })
+      map.jumpTo({ center: [80.5, 22], zoom: 3.5 })
       return
     }
 
@@ -146,9 +190,9 @@ export default function HeatMap({
     marker.getElement().setAttribute('aria-label', `Selected location: ${location.name}`)
 
     if (location.bounds) {
-      map.fitBounds(location.bounds, { padding: 40, maxZoom: 10, duration: 800 })
+      map.fitBounds(location.bounds, { padding: 40, maxZoom: 10, duration: 0 })
     } else {
-      map.flyTo({ center: [location.longitude, location.latitude], zoom: 10.5, duration: 800 })
+      map.jumpTo({ center: [location.longitude, location.latitude], zoom: 10 })
     }
 
     return () => {
@@ -163,11 +207,11 @@ export default function HeatMap({
     const f = geojson.features.find((feat) => feat.properties.ward_id === selectedWardId)
     const bounds = f ? bboxOf([f]) : null
     if (bounds) {
-      map.fitBounds(bounds, { padding: 50, maxZoom: 14, duration: 800 })
+      map.fitBounds(bounds, { padding: 40, maxZoom: 14, duration: 0 })
     }
   }, [map, geojson, selectedWardId])
 
-  // Resource / POI Layer
+  // Resource / POI Layer: Water stations, Commercial AC buildings & Nearby hospitals
   useEffect(() => {
     if (!map) return
     if (!map.getSource('help')) {
@@ -178,6 +222,7 @@ export default function HeatMap({
         clusterMaxZoom: 13,
         clusterRadius: 35,
       })
+
       map.addLayer({
         id: 'help-clusters',
         type: 'circle',
@@ -190,6 +235,21 @@ export default function HeatMap({
           'circle-stroke-width': 2,
         },
       })
+
+      map.addLayer({
+        id: 'help-cluster-count',
+        type: 'symbol',
+        source: 'help',
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-size': 11,
+        },
+        paint: {
+          'text-color': '#FFFFFF',
+        },
+      })
+
       map.addLayer({
         id: 'help-points',
         type: 'circle',
@@ -199,17 +259,21 @@ export default function HeatMap({
           'circle-color': [
             'match',
             ['get', 'category'],
-            'cooling',
-            '#F6C453',
             'water',
-            '#EA762B',
+            '#38BDF8', // Cyan/sky blue for water cooling stations
+            'cooling',
+            '#F59E0B', // Amber/gold for commercial AC buildings
             'medical',
-            '#D3443F',
-            '#C9AE8D',
+            '#EF4444', // Red for nearby hospitals
+            'pharmacy',
+            '#10B981',
+            'shelter',
+            '#8B5CF6',
+            '#EA762B',
           ],
-          'circle-radius': ['case', ['==', ['get', 'id'], selectedResourceId ?? ''], 10, 6.5],
+          'circle-radius': ['case', ['==', ['get', 'id'], selectedResourceId ?? ''], 11, 7.5],
           'circle-stroke-color': '#0B0907',
-          'circle-stroke-width': 1.5,
+          'circle-stroke-width': 1.8,
         },
       })
     }
@@ -217,27 +281,73 @@ export default function HeatMap({
     const source = map.getSource('help') as GeoJSONSource
     source.setData({
       type: 'FeatureCollection',
-      features: (resourcesVisible ? resources : []).map((r) => ({
+      features: displayedResources.map((r) => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [r.longitude, r.latitude] },
-        properties: { id: r.id, category: r.category, name: r.name },
+        properties: {
+          id: r.id,
+          category: r.category,
+          name: r.name,
+          address: r.address ?? '',
+          openingHours: r.openingHours ?? '',
+          verification: r.verification,
+        },
       })),
     })
 
     map.setPaintProperty('help-points', 'circle-radius', [
       'case',
       ['==', ['get', 'id'], selectedResourceId ?? ''],
-      10,
-      6.5,
+      11,
+      7.5,
     ])
-  }, [map, resources, resourcesVisible, selectedResourceId])
+  }, [map, displayedResources, selectedResourceId])
 
-  // Click & popup handlers
+  // Click & popup handlers for Help POIs
   useEffect(() => {
     if (!map) return
+
     const click = (event: MapLayerMouseEvent) => {
-      const resource = resources.find((r) => r.id === event.features?.[0]?.properties?.id)
-      if (resource) onResourceSelect?.(resource)
+      const id = event.features?.[0]?.properties?.id
+      const resource = displayedResources.find((r) => r.id === id)
+      if (!resource) return
+      onResourceSelect?.(resource)
+
+      const catLabel =
+        resource.category === 'water'
+          ? '💧 Water Cooling Station'
+          : resource.category === 'cooling'
+          ? '❄️ Commercial AC & Cooling'
+          : resource.category === 'medical'
+          ? '🏥 Nearby Hospital / Clinic'
+          : resource.category
+
+      const catColor =
+        resource.category === 'water'
+          ? '#38BDF8'
+          : resource.category === 'cooling'
+          ? '#F59E0B'
+          : '#EF4444'
+
+      const html = `
+        <div class="tapas-poi-popup" style="padding: 2px; font-family: sans-serif; min-width: 190px;">
+          <div style="font-weight: 700; font-size: 13px; color: #F2E3CC; margin-bottom: 4px; line-height: 1.25;">
+            ${resource.name}
+          </div>
+          <div style="display: inline-block; font-size: 10px; font-weight: 600; color: ${catColor}; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; border: 1px solid ${catColor}60; margin-bottom: 6px;">
+            ${catLabel}
+          </div>
+          ${resource.address ? `<div style="font-size: 11px; color: #C4A986; margin-bottom: 4px;">${resource.address}</div>` : ''}
+          ${resource.openingHours ? `<div style="font-size: 10px; color: #8A7359;">Hours: ${resource.openingHours}</div>` : ''}
+          <div style="font-size: 9px; color: #8A7359; margin-top: 6px; border-top: 1px solid #322619; padding-top: 4px;">
+            ${resource.verification === 'authority-listed' ? '✓ Verified Municipal Network' : 'OpenStreetMap Mapped'}
+          </div>
+        </div>
+      `
+      new maplibregl.Popup({ offset: 12, closeButton: true })
+        .setLngLat([resource.longitude, resource.latitude])
+        .setHTML(html)
+        .addTo(map)
     }
 
     const cluster = (event: MapLayerMouseEvent) => {
@@ -247,27 +357,43 @@ export default function HeatMap({
       void (map.getSource('help') as GeoJSONSource)
         .getClusterExpansionZoom(Number(f.properties?.cluster_id))
         .then((zoom) => {
-          if (instanceRef.current === map) map.easeTo({ center, zoom, duration: 400 })
+          if (instanceRef.current === map) map.easeTo({ center, zoom, duration: 250 })
         })
         .catch(() => {})
     }
 
+    const setCursorPointer = () => {
+      map.getCanvas().style.cursor = 'pointer'
+    }
+    const resetCursor = () => {
+      map.getCanvas().style.cursor = ''
+    }
+
     map.on('click', 'help-points', click)
     map.on('click', 'help-clusters', cluster)
+    map.on('mouseenter', 'help-points', setCursorPointer)
+    map.on('mouseleave', 'help-points', resetCursor)
+    map.on('mouseenter', 'help-clusters', setCursorPointer)
+    map.on('mouseleave', 'help-clusters', resetCursor)
+
     return () => {
       map.off('click', 'help-points', click)
       map.off('click', 'help-clusters', cluster)
+      map.off('mouseenter', 'help-points', setCursorPointer)
+      map.off('mouseleave', 'help-points', resetCursor)
+      map.off('mouseenter', 'help-clusters', setCursorPointer)
+      map.off('mouseleave', 'help-clusters', resetCursor)
     }
-  }, [map, resources, onResourceSelect])
+  }, [map, displayedResources, onResourceSelect])
 
   // Fly to selected resource
   useEffect(() => {
-    const resource = resources.find((r) => r.id === selectedResourceId)
-    if (!map || !resource || !resourcesVisible) return
-    map.flyTo({ center: [resource.longitude, resource.latitude], zoom: 15, duration: 600 })
+    const resource = activePool.find((r) => r.id === selectedResourceId)
+    if (!map || !resource) return
+    map.easeTo({ center: [resource.longitude, resource.latitude], zoom: 15, duration: 300 })
     const content = document.createElement('div')
     content.textContent = `${resource.name} · ${resource.category}`
-    content.className = 'text-xs font-semibold'
+    content.className = 'text-xs p-1 font-semibold text-[#F2E3CC]'
     const popup = new maplibregl.Popup({ offset: 10 })
       .setLngLat([resource.longitude, resource.latitude])
       .setDOMContent(content)
@@ -275,7 +401,7 @@ export default function HeatMap({
     return () => {
       popup.remove()
     }
-  }, [map, resources, selectedResourceId, resourcesVisible])
+  }, [map, activePool, selectedResourceId])
 
   return (
     <div
@@ -287,17 +413,25 @@ export default function HeatMap({
       )}
     >
       <div className="relative min-h-0 flex-1">
-        <div ref={container} className="h-full w-full" aria-label={`Heat Risk Map for ${location?.name ?? 'India'}`} />
+        <div
+          ref={container}
+          className="h-full w-full min-h-[500px]"
+          aria-label={`Heat Risk Map for ${location?.name ?? 'India'}`}
+        />
 
-        {/* OVERLAY PANEL 1: Top-Left Layer Selector */}
-        <div className="absolute left-3 top-3 z-10 max-w-[280px] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 p-3 text-xs shadow-xl backdrop-blur-md">
+        {/* OVERLAY PANEL 1: Top-Left Layer Selector & Dedicated Resource Toggles */}
+        <div className="absolute left-3 top-3 z-10 max-w-[310px] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 p-3.5 text-xs shadow-2xl backdrop-blur-md">
           <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2 mb-2">
-            <span className="font-bold text-[var(--text-primary)] truncate">
+            <span className="font-bold text-[var(--text-primary)] text-sm truncate">
               {location?.name ?? 'India National Overview'}
             </span>
           </div>
 
-          <div className="space-y-1.5 text-[11px] text-[var(--text-secondary)]">
+          <p className="text-[11px] text-[var(--text-muted)] mb-2.5">
+            {selectedDate} · Live Polka Dot Thermal Grid &amp; Response Network
+          </p>
+
+          <div className="space-y-2 text-[11px] text-[var(--text-secondary)]">
             <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--text-primary)]">
               <input
                 type="checkbox"
@@ -311,18 +445,41 @@ export default function HeatMap({
             <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--text-primary)]">
               <input
                 type="checkbox"
-                checked={resourcesVisible}
-                onChange={(e) => setResourcesVisible(e.target.checked)}
-                className="accent-[var(--accent)] rounded"
+                checked={waterVisible}
+                onChange={(e) => setWaterVisible(e.target.checked)}
+                className="accent-sky-400 rounded"
               />
-              <span>Cooling &amp; Health Resources ({resources.length})</span>
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-sky-400 shrink-0" aria-hidden="true" />
+              <span>Water Cooling Stations ({counts.water})</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--text-primary)]">
+              <input
+                type="checkbox"
+                checked={commercialVisible}
+                onChange={(e) => setCommercialVisible(e.target.checked)}
+                className="accent-amber-400 rounded"
+              />
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber-400 shrink-0" aria-hidden="true" />
+              <span>Commercial AC Buildings ({counts.cooling})</span>
+            </label>
+
+            <label className="flex items-center gap-2 cursor-pointer hover:text-[var(--text-primary)]">
+              <input
+                type="checkbox"
+                checked={hospitalsVisible}
+                onChange={(e) => setHospitalsVisible(e.target.checked)}
+                className="accent-red-500 rounded"
+              />
+              <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500 shrink-0" aria-hidden="true" />
+              <span>Nearby Hospitals ({counts.medical})</span>
             </label>
           </div>
         </div>
 
         {/* OVERLAY PANEL 2: Top-Right Hottest Wards Ranking */}
         {hottestWards.length > 0 && (
-          <div className="absolute right-3 top-3 z-10 hidden sm:block max-w-[260px] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 p-3 text-xs shadow-xl backdrop-blur-md">
+          <div className="absolute right-3 top-3 z-10 hidden sm:block max-w-[260px] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 p-3 text-xs shadow-2xl backdrop-blur-md">
             <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-1.5 mb-2">
               <span className="font-bold uppercase tracking-wider text-[10px] text-[var(--text-muted)]">
                 Highest Risk Wards
@@ -367,8 +524,8 @@ export default function HeatMap({
           </div>
         )}
 
-        {/* OVERLAY PANEL 3: Bottom-Left Legend */}
-        <div className="absolute left-3 bottom-4 z-10 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 px-3 py-2 text-[10.5px] shadow-xl backdrop-blur-md">
+        {/* OVERLAY PANEL 3: Bottom-Left Heat Risk Scale Legend */}
+        <div className="absolute left-3 bottom-4 z-10 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-primary)]/95 px-3 py-2 text-[10.5px] shadow-2xl backdrop-blur-md">
           <span className="block font-bold uppercase tracking-wider text-[9px] text-[var(--text-muted)] mb-1.5">
             Heat Risk Scale
           </span>
@@ -391,11 +548,22 @@ export default function HeatMap({
           </div>
         </div>
 
-        {error && (
-          <p role="status" className="absolute inset-x-4 bottom-16 rounded-xl border border-[var(--risk-4)] bg-[var(--bg-primary)] p-3 text-xs text-[var(--risk-4)]">
+        {error ? (
+          <p
+            role="status"
+            className="absolute inset-x-4 bottom-16 rounded-xl border border-[var(--risk-4)] bg-[var(--bg-primary)] p-3 text-xs text-[var(--risk-4)]"
+          >
             {error}
           </p>
-        )}
+        ) : null}
+
+        <ul className="sr-only" data-testid="ward-risk-list">
+          {wards.map((w) => (
+            <li key={w.ward_id} data-ward-id={w.ward_id}>
+              {w.ward_name} - {w.risk_level ? `Level ${w.risk_level}` : 'Risk unavailable'}
+            </li>
+          ))}
+        </ul>
       </div>
 
       <ThermalLayer map={map} date={selectedDate} />

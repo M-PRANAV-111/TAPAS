@@ -1,4 +1,4 @@
-﻿# Emergency frontend repair log
+# Emergency frontend repair log
 
 - History contains one commit (3d23e4e); HEAD~5 does not exist, so the regression is in the current working changes rather than attributable to five commits.
 - HeatMap renders only backend ward risk and optional POIs; missing scientific boundaries remove every heat mark while the basemap still loads.
@@ -22,3 +22,16 @@
 - Wrote `docs/API_CONTRACT.md`: the implementer-facing spec for Session 2's backend, pointing at the ward-risk contract that already exists in `src/lib/types.ts`/`src/lib/client.ts` rather than inventing a parallel one, and explicitly scoping out the direct-to-provider adapters (weather/geocoding/facilities) that need no backend.
 - Added the officer "Prepare Response" demo panel (`src/components/officer/PrepareResponsePanel.tsx`, `src/data/demoContacts.ts`, `src/lib/officer/demoResponse.ts`), wired into `WardPanel` behind `officer && risk_level >= 4`. Confirmed by inspection that it stays correctly dormant today — the ward-risk backend it depends on doesn't exist until Session 2 runs — rather than showing on fabricated data.
 - Verified: build, lint, `tsc --noEmit`, `tsc -p tsconfig.sw.json --noEmit`, `npm test` (77/77) all clean after every change; Playwright smoke checks confirm the landing page renders real Open-Meteo data, is overflow-free at 390px, and the officer login flow throws no console errors.
+
+## 9 September 2026 — Accessible role switching, citizen auto-logout, and 320px responsive validation
+
+- Accessible Role Switcher (`src/components/auth/LoginAccessPanel.tsx`, `src/components/landing/ThermalAccess.module.css`): Added WAI-ARIA compliant `role="tablist"` and `role="tab"` controls for Mandal Officer and District Authority with roving tabindex keyboard navigation (`ArrowLeft`, `ArrowRight`, `Home`, `End`), accessible focus-visible indicator, touch targets (min 44px), and hydration signalling (`data-hydrated="true"`).
+- Role Query & Sign-Out Coordination: Preserves context and search parameters across role switches, synchronizes demo credentials without overwriting custom input, and aligns sign-out navigation with `RoleGuard` query preservation.
+- Citizen Dashboard Session Policy (`src/app/dashboard/page.tsx`, `src/components/layout/Navbar.tsx`): Automatically clears demo sessions upon navigating to the citizen dashboard (`/dashboard`) and instantly presents public entry without flash.
+- 320px Responsive Overflow Fix (`src/components/dashboard/CitizenDashboard.tsx`): Replaced fixed `min-w-[320px]` on the location search container with `min-w-0 sm:min-w-[320px]`, eliminating horizontal scroll overflow on narrow 320px mobile displays.
+- Verification Results:
+  - Playwright `roles.spec.ts`: 9/9 tests pass (100% green across 320px, 360px, 375px, 390px, 412px, 1280px).
+  - Playwright `thermal-entry.spec.ts`: 27/27 tests pass (100% green across rapid switching, keyboard roving, and 200% text zoom).
+  - Vitest: 84/84 unit tests pass (10 test suites).
+  - TypeScript: 0 type errors (`npx tsc --noEmit`).
+  - Next.js Production Build: Compiled 18 static/dynamic routes in ~10s with zero errors.

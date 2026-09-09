@@ -10,6 +10,7 @@ interface CoolingSpotsPanelProps {
   wardName?: string
   className?: string
   onSpotSelect?: (spot: CoolingSpot) => void
+  userLocation?: { latitude: number; longitude: number }
 }
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
@@ -19,6 +20,7 @@ export function CoolingSpotsPanel({
   wardName,
   className,
   onSpotSelect,
+  userLocation,
 }: CoolingSpotsPanelProps) {
   // Sort strictly by distance
   const sorted = [...spots].sort((a, b) => a.distance_km - b.distance_km)
@@ -63,7 +65,10 @@ export function CoolingSpotsPanel({
             {sorted.map((spot) => {
               const lastVerifiedMs = spot.last_verified ? Date.parse(spot.last_verified) : 0
               const isOlderThan7Days = Date.now() - lastVerifiedMs > SEVEN_DAYS_MS
-              const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${spot.latitude},${spot.longitude}`
+              const hasOrigin = userLocation && Number.isFinite(userLocation.latitude) && Number.isFinite(userLocation.longitude)
+              const directionsUrl = hasOrigin
+                ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.latitude},${userLocation.longitude}&destination=${spot.latitude},${spot.longitude}`
+                : `https://www.google.com/maps/dir/?api=1&destination=${spot.latitude},${spot.longitude}`
 
               return (
                 <li

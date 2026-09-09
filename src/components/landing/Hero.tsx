@@ -48,7 +48,6 @@ export function Hero() {
           <ThermalScene
             role={role.id}
             paused={paused}
-            onRoleChange={(newIndex) => select(newIndex)}
           />
         </div>
       </div>

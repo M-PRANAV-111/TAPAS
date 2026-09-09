@@ -6,16 +6,18 @@ import Image from 'next/image'
 import { ArrowUpRight, Pause, Play } from 'lucide-react'
 import { ThermalScene } from '@/components/landing/ThermalScene'
 import type { EntryRole } from '@/components/landing/roles'
+import { useLocation } from '@/components/providers/LocationProvider'
 import styles from './ThermalAccess.module.css'
 
 export function ThermalAccess({ role, children }: { role: Exclude<EntryRole, 'citizen'>; children: ReactNode }) {
+  const { selectionQuery } = useLocation()
   const [paused, setPaused] = useState(false)
   const isAuthority = role === 'authority'
 
   return (
     <div className={styles.access}>
       <section className={styles.scenePanel} aria-labelledby="access-scene-title">
-        <Link href="/" className={styles.brand} title="Return to home">
+        <Link href={`/?${selectionQuery}`} className={styles.brand} title="Return to home">
           <Image
             src="/tapas-emblem.png"
             alt="TAPAS Emblem"

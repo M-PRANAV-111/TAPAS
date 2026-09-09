@@ -1,6 +1,6 @@
 'use client'
 
-import { Scale, CheckCircle2 } from 'lucide-react'
+import { Scale, CheckCircle2, Info } from 'lucide-react'
 import type { ExplainableRiskScore } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -20,12 +20,14 @@ export function ExplainableRisk({
     category: 'EXTREME' as const,
     factors: [
       { label: 'High thermal stress', points: 28, detail: 'UTCI 8.4/10 with elevated radiant heat' },
-      { label: 'High outdoor-worker exposure', points: 21, detail: '34% of ward workforce in unshaded zones' },
-      { label: 'Elderly population above median', points: 16, detail: '18.2% vulnerable demographics (median 12.5%)' },
+      { label: 'High outdoor-worker exposure', points: 21, detail: '8.2% of ward workforce in unshaded zones (Census 2011 derived rate)' },
+      { label: 'Elderly population above median', points: 16, detail: '6.5% vulnerable demographics 65+ (Census 2011 district rate)' },
       { label: 'Patient surge detected', points: 12, detail: '+68% vs 7-day health facility baseline' },
       { label: 'Poor night-time recovery', points: 10, detail: 'Minimum night UTCI stayed above 95th percentile' },
     ],
     methodology: 'TAPAS Multi-Dimensional Heat-Health Risk Model v2.1',
+    derivation_note:
+      'Ward-level demographics estimated from Census 2011 Hyderabad district aggregates using uniform distribution. Not ward-enumerated. Replace with municipal ward data when available.',
   }
 
   const categoryColor =
@@ -111,6 +113,16 @@ export function ExplainableRisk({
             </div>
           ))}
         </div>
+
+        {scoreData.derivation_note && (
+          <div className="mt-3 flex items-start gap-2.5 rounded border border-[var(--border-subtle)] bg-[var(--bg-elevated)] p-3 text-[11px] text-[var(--text-muted)]">
+            <Info className="h-4 w-4 text-[var(--accent)] shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <strong className="text-[var(--text-secondary)] font-semibold">Demographics Provenance: </strong>
+              {scoreData.derivation_note}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Footer Provenance */}

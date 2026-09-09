@@ -122,3 +122,24 @@
 
 /* Map navigation remains usable with one thumb. */
 .maplibregl-ctrl-group button { width: 44px; height: 44px; }
+
+/* Landing hero: soft drifting colour blobs, no WebGL/canvas. */
+.tapas-blob {
+  position: absolute;
+  width: 44vw;
+  height: 44vw;
+  max-width: 620px;
+  max-height: 620px;
+  border-radius: 9999px;
+  filter: blur(70px);
+  will-change: transform;
+}
+.tapas-blob-1 { top: -12%; left: -10%; background: radial-gradient(circle, var(--risk-4), transparent 70%); opacity: 0.22; animation: tapas-drift-1 26s ease-in-out infinite; }
+.tapas-blob-2 { bottom: -18%; right: -8%; background: radial-gradient(circle, var(--risk-3), transparent 70%); opacity: 0.2; animation: tapas-drift-2 30s ease-in-out infinite; }
+.tapas-blob-3 { top: 28%; right: 18%; background: radial-gradient(circle, var(--risk-2), transparent 70%); opacity: 0.15; animation: tapas-drift-3 22s ease-in-out infinite; }
+@keyframes tapas-drift-1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(6vw, 8vh); } }
+@keyframes tapas-drift-2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-7vw, -6vh); } }
+@keyframes tapas-drift-3 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-5vw, 6vh); } }
+
+@keyframes tapas-fade-in { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+.tapas-ticker-fade { animation: tapas-fade-in 500ms ease; }

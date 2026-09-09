@@ -8,6 +8,7 @@ import { alertValidity } from '@/components/alerts/validity'
 
 import { DeathsDisplay } from '@/components/risk/DeathsDisplay'
 import { RiskBadge } from '@/components/risk/RiskBadge'
+import { PrepareResponseTrigger } from '@/components/officer/PrepareResponsePanel'
 import { FacilitiesTab } from '@/components/ward/FacilitiesTab'
 import { RiskStrip } from '@/components/ward/RiskStrip'
 import { UtciChart } from '@/components/ward/UtciChart'
@@ -30,6 +31,7 @@ export interface WardPanelProps {
   onDaySelect: (date: string) => void
   onClose: () => void
   className?: string
+  officer?: boolean
 }
 
 export function WardPanel({
@@ -39,6 +41,7 @@ export function WardPanel({
   onDaySelect,
   onClose,
   className,
+  officer = false,
 }: WardPanelProps) {
   const { forecast, risk, facilities } = useWard(wardId)
   const alerts = useAlerts(1, 200)
@@ -163,6 +166,14 @@ export function WardPanel({
                   intervalLabel={today.confidence_level ? `${today.confidence_level}% ${today.interval_type ?? 'reported interval'}` : today.interval_type}
                 />
               </section>
+            ) : null}
+
+            {officer && today ? (
+              <PrepareResponseTrigger
+                wardName={displayName}
+                day={today}
+                facilitiesCount={facilities.data?.facilities.length ?? 0}
+              />
             ) : null}
 
           </TabsContent>

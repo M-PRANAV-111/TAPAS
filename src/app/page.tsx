@@ -1,5 +1,11 @@
-import { redirect } from 'next/navigation'
+import { Hero } from '@/components/landing/Hero'
+import { LandingSections } from '@/components/landing/LandingSections'
 
 export default function Home() {
-  redirect('/dashboard')
+  return (
+    <>
+      <Hero />
+      <LandingSections />
+    </>
+  )
 }

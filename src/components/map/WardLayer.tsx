@@ -10,7 +10,7 @@ import type {
 } from 'maplibre-gl'
 import maplibregl from 'maplibre-gl'
 
-import { RISK_COLORS, RISK_LABELS } from '@/lib/constants'
+import { RISK_COLORS, RISK_LABELS, RISK_TEXT_COLORS } from '@/lib/constants'
 import type { RiskLevel, WardCollection, WardRisk } from '@/lib/types'
 
 export const WARD_SOURCE_ID = 'wards'
@@ -19,7 +19,7 @@ export const WARD_BORDER_LAYER = 'ward-borders'
 export const WARD_SELECTED_LAYER = 'ward-selected'
 
 /** Wards with no risk row yet render neutral grey rather than a false "Low". */
-const NO_DATA_COLOR = '#B6BCC2'
+const NO_DATA_COLOR = '#6B5D4F'
 
 const FILL_COLOR: ExpressionSpecification = [
   'match',
@@ -97,13 +97,13 @@ export function bboxOf(features: WardCollection['features']): LngLatBoundsLike |
 function popupHtml(name: string, level: RiskLevel | undefined): string {
   const safeName = name.replace(/[<>&]/g, '')
   if (!level) {
-    return `<div class="text-xs"><div class="font-semibold">${safeName}</div><div style="color:#566573">No forecast for this day</div></div>`
+    return `<div class="text-xs"><div class="font-semibold">${safeName}</div><div style="color:#C8AD8C">No forecast for this day</div></div>`
   }
   return [
     '<div class="text-xs">',
     `<div class="font-semibold" style="margin-bottom:4px">${safeName}</div>`,
     `<span style="display:inline-block;padding:2px 8px;border-radius:999px;font-weight:600;`,
-    `background:${RISK_COLORS[level]};color:${level === 2 ? '#1C2833' : '#FFFFFF'}">`,
+    `background:${RISK_COLORS[level]};color:${RISK_TEXT_COLORS[level]}">`,
     `Level ${level} — ${RISK_LABELS[level]}</span>`,
     '</div>',
   ].join('')
@@ -157,7 +157,7 @@ export function WardLayer({
       type: 'line',
       source: WARD_SOURCE_ID,
       paint: {
-        'line-color': '#FFFFFF',
+        'line-color': '#0E0B08',
         'line-width': 0.8,
       },
     })
@@ -168,7 +168,7 @@ export function WardLayer({
       source: WARD_SOURCE_ID,
       filter: ['==', ['get', 'ward_id'], ''],
       paint: {
-        'line-color': '#1C2833',
+        'line-color': '#F4E4CC',
         'line-width': 2.5,
       },
     })

@@ -13,7 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
 
   return (
-    <div className="relative isolate min-h-[calc(100vh-3.5rem)] overflow-hidden bg-[#12181f] px-3 py-10 text-white sm:px-4">
+    <div className="relative isolate min-h-[calc(100vh-3.5rem)] overflow-hidden bg-[var(--bg)] px-3 py-10 text-white sm:px-4">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="tapas-blob tapas-blob-1" />
         <div className="tapas-blob tapas-blob-2" />
@@ -36,7 +36,7 @@ export default function LoginPage() {
               type="email"
               autoComplete="username"
               placeholder="officer@example.gov.in"
-              className="mt-1 min-h-11 w-full rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--risk-4)]"
+              className="mt-1 min-h-11 w-full rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--heat-orange)]"
             />
           </div>
           <div>
@@ -46,7 +46,7 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               placeholder="••••••••"
-              className="mt-1 min-h-11 w-full rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--risk-4)]"
+              className="mt-1 min-h-11 w-full rounded-md border border-white/15 bg-white/5 px-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--heat-orange)]"
             />
           </div>
           <Button type="submit" variant="destructive" className="min-h-11 w-full" disabled>

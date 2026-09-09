@@ -4,39 +4,42 @@
 
 @layer base {
   :root {
-    /* ---- TAPAS design system ------------------------------------------- */
-    --risk-1: #1e8449; /* Level 1 Low       — dark green */
-    --risk-2: #f1c40f; /* Level 2 Moderate  — amber */
-    --risk-3: #e67e22; /* Level 3 High      — orange */
-    --risk-4: #c0392b; /* Level 4 Very High — red */
-    --risk-5: #641e16; /* Level 5 Extreme   — dark red */
-    --bg: #f8f9fa;
-    --card: #ffffff;
-    --border: #d5d8dc;
-    --text: #1c2833;
-    --subtext: #566573;
+    /* ---- TAPAS design system: dark "ember" palette ---------------------- */
+    --risk-1: #4a7c59; /* Level 1 Low       — muted green */
+    --risk-2: #f6c453; /* Level 2 Moderate  — amber */
+    --risk-3: #ea762b; /* Level 3 High      — orange */
+    --risk-4: #d3443f; /* Level 4 Very High — red */
+    --risk-5: #741e29; /* Level 5 Extreme   — dark maroon */
+    --heat-orange: #ea762b;
+    --heat-crimson: #a92d35;
+    --bg: #0e0b08;              /* page background */
+    --bg-elevated: #2b1e15;     /* popovers, dropdown options, hover surfaces */
+    --border-strong: #67432a;
+    --text: #f4e4cc;
+    --subtext: #c8ad8c;
+    --text-muted: #927b66;      /* quieter than --subtext — meta labels only */
     --font: var(--font-inter), 'Inter', system-ui, sans-serif;
 
-    /* ---- shadcn/ui tokens (slate base), tuned to the palette above ------ */
-    --background: 210 20% 98%;
-    --foreground: 209 29% 15%;
-    --card: 0 0% 100%;
-    --card-foreground: 209 29% 15%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 209 29% 15%;
-    --primary: 209 29% 15%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 209 29% 15%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 209 12% 39%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 209 29% 15%;
-    --destructive: 6 63% 46%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214 9% 85%;
-    --input: 214 9% 85%;
-    --ring: 209 29% 15%;
+    /* ---- shadcn/ui tokens, tuned to the ember palette above -------------- */
+    --background: 30 27% 4%;
+    --foreground: 36 65% 88%;
+    --card: 27 24% 7%;
+    --card-foreground: 36 65% 88%;
+    --popover: 25 34% 13%;
+    --popover-foreground: 36 65% 88%;
+    --primary: 24 82% 54%;
+    --primary-foreground: 28 48% 5%;
+    --secondary: 26 32% 10%;
+    --secondary-foreground: 36 65% 88%;
+    --muted: 26 32% 10%;
+    --muted-foreground: 29 18% 49%;
+    --accent: 25 34% 13%;
+    --accent-foreground: 36 65% 88%;
+    --destructive: 356 58% 42%;
+    --destructive-foreground: 36 65% 88%;
+    --border: 26 41% 16%;
+    --input: 26 41% 16%;
+    --ring: 24 82% 54%;
     --radius: 0.5rem;
   }
 
@@ -62,14 +65,14 @@
      screens get used one-handed in the field. */
   :focus-visible {
     @apply outline-none ring-2 ring-offset-2;
-    --tw-ring-color: var(--risk-4);
+    --tw-ring-color: var(--heat-orange);
   }
 }
 
 @layer components {
   .tapas-card {
-    background-color: var(--card);
-    border: 1px solid var(--border);
+    background-color: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
     @apply rounded-lg;
   }
 
@@ -78,23 +81,73 @@
   }
 }
 
-/* MapLibre popups inherit the app's type rather than the library default. */
+/* MapLibre popups inherit the app's type and palette rather than the
+   library's default white box. */
 .maplibregl-popup-content {
   max-width: min(280px, 75vw);
   overflow-wrap: anywhere;
   font-family: var(--font);
   padding: 0.5rem 0.625rem;
   border-radius: 0.5rem;
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 12px rgb(28 40 51 / 12%);
+  border: 1px solid hsl(var(--border));
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+  box-shadow: 0 4px 16px rgb(0 0 0 / 45%);
+}
+
+.maplibregl-popup-tip {
+  border-top-color: hsl(var(--popover)) !important;
+  border-bottom-color: hsl(var(--popover)) !important;
+}
+
+.maplibregl-popup-close-button {
+  color: hsl(var(--popover-foreground));
+}
+
+.maplibregl-ctrl-attrib {
+  background: rgba(14, 11, 8, 0.75) !important;
+  color: var(--text-muted) !important;
+}
+
+.maplibregl-ctrl-attrib a {
+  color: var(--subtext) !important;
 }
 
 .maplibregl-ctrl-attrib.maplibregl-compact {
   font-size: 11px;
 }
 
-/* Printing is how the occupational schedule leaves the building. */
+.maplibregl-ctrl-group {
+  background: hsl(var(--card)) !important;
+  border: 1px solid hsl(var(--border));
+}
+
+.maplibregl-ctrl-group button {
+  background-color: transparent !important;
+}
+
+.maplibregl-ctrl-icon {
+  filter: invert(1) brightness(1.6);
+}
+
+/* Printing is how the occupational schedule leaves the building — paper
+   stays light and legible regardless of the app's on-screen dark theme. */
 @media print {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 209 29% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 209 29% 15%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 209 29% 15%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 209 12% 39%;
+    --border: 214 9% 85%;
+    --bg: #ffffff;
+    --text: #1c2833;
+    --subtext: #566573;
+  }
+
   .no-print {
     display: none !important;
   }
@@ -105,6 +158,7 @@
 
   body {
     background: #ffffff;
+    color: #1c2833;
   }
 
   .print-page {

@@ -24,7 +24,7 @@ export function MapControls({
 
   return (
     <div className={cn('space-y-3', className)}>
-      <div className="rounded-lg border border-border bg-white p-3">
+      <div className="rounded-lg border border-border bg-card p-3">
         <div className="flex items-baseline justify-between gap-3">
           <h3 className="text-xs font-semibold uppercase tracking-wide tapas-subtext">
             Forecast day
@@ -73,7 +73,7 @@ export function MapControls({
       </div>
 
       <div
-        className="rounded-lg border border-border bg-white p-3"
+        className="rounded-lg border border-border bg-card p-3"
         data-testid="map-legend"
       >
         <h3 className="text-xs font-semibold uppercase tracking-wide tapas-subtext">

@@ -41,7 +41,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#C0392B',
+  themeColor: '#0E0B08',
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
@@ -57,7 +57,7 @@ export default function RootLayout({
           <Suspense fallback={<p className="p-4">Loading TAPAS…</p>}><LocationProvider>
           <a
             href="#main"
-            className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-white focus:px-3 focus:py-2 focus:text-sm"
+            className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded focus:bg-card focus:px-3 focus:py-2 focus:text-sm"
           >
             Skip to content
           </a>

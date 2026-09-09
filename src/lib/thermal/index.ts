@@ -21,10 +21,10 @@ export function heatIndexCelsius(temperature: unknown, humidity: unknown): numbe
 export function heatIndexBand(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) return null
   const f=celsiusToFahrenheit(value)
-  if(f>=125)return {label:'Extreme danger',color:'#641E16',severity:4 as const}
-  if(f>=103)return {label:'Danger',color:'#C0392B',severity:3 as const}
-  if(f>=90)return {label:'Extreme caution',color:'#E67E22',severity:2 as const}
-  if(f>=80)return {label:'Caution',color:'#B8860B',severity:1 as const}
+  if(f>=125)return {label:'Extreme danger',color:'#741E29',severity:4 as const}
+  if(f>=103)return {label:'Danger',color:'#D3443F',severity:3 as const}
+  if(f>=90)return {label:'Extreme caution',color:'#EA762B',severity:2 as const}
+  if(f>=80)return {label:'Caution',color:'#F6C453',severity:1 as const}
   return null
 }
 export function formatHeatIndex(value: number | null | undefined): string {

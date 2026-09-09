@@ -59,7 +59,7 @@ export function LandingSections() {
         </h2>
         <ul className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {CAPABILITIES.map(({ icon: Icon, label }) => (
-            <li key={label} className="flex items-center gap-3 rounded-lg border border-border bg-white p-3">
+            <li key={label} className="flex items-center gap-3 rounded-lg border border-border bg-card p-3">
               <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
               <span className="text-sm">{label}</span>
             </li>

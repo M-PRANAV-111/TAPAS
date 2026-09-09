@@ -32,15 +32,15 @@ export function WbgtChart({ hourly, className }: WbgtChartProps) {
     <div className={cn('w-full min-w-0', className)} data-testid="wbgt-chart">
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data} margin={{ top: 12, right: 12, bottom: 4, left: 0 }}>
-          <CartesianGrid stroke="#E9ECEF" vertical={false} />
-          <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#566573' }} tickLine={false}
-            axisLine={{ stroke: '#D5D8DC' }} interval="preserveStartEnd" minTickGap={24} />
+          <CartesianGrid stroke="#3A2718" vertical={false} />
+          <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#C8AD8C' }} tickLine={false}
+            axisLine={{ stroke: '#3A2718' }} interval="preserveStartEnd" minTickGap={24} />
           <YAxis domain={[Math.min(0, Math.floor(Math.min(...measurements) - 2)), Math.ceil(Math.max(...measurements) + 2)]}
-            tick={{ fontSize: 11, fill: '#566573' }} tickLine={false} axisLine={false} width={48} unit="°C" />
-          <Tooltip cursor={{ fill: 'rgba(28,40,51,0.05)' }} content={<WbgtTooltip />} />
+            tick={{ fontSize: 11, fill: '#C8AD8C' }} tickLine={false} axisLine={false} width={48} unit="°C" />
+          <Tooltip cursor={{ fill: 'rgba(244,228,204,0.06)' }} content={<WbgtTooltip />} />
           <Bar dataKey="wbgt" isAnimationActive={false} radius={[2, 2, 0, 0]}>
             {data.map((entry) => <Cell key={entry.hour}
-              fill={validWbgtBand(entry.band) ? WBGT_BANDS[entry.band].color : '#9CA3AF'}
+              fill={validWbgtBand(entry.band) ? WBGT_BANDS[entry.band].color : '#6B5D4F'}
               aria-label={`${entry.label}, ${formatTemp(entry.wbgt)}, ${validWbgtBand(entry.band) ? entry.band : 'classification unavailable'}`} />)}
           </Bar>
         </BarChart>
@@ -52,7 +52,7 @@ export function WbgtChart({ hourly, className }: WbgtChartProps) {
             {WBGT_BANDS[band].label} (supplied classification)
           </li>
         ))}
-        <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-gray-400" aria-hidden="true" />Classification unavailable</li>
+        <li className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded-sm bg-[#6B5D4F]" aria-hidden="true" />Classification unavailable</li>
       </ul>
       {measurements.length !== data.length ? <p className="mt-2 text-xs tapas-subtext">Some hourly WBGT values are unavailable; gaps are not zero.</p> : null}
       <p className="mt-2 text-xs tapas-subtext">Bands and work/rest recommendations require source methodology and a site-specific assessment. No schedule is inferred from missing information.</p>
@@ -73,7 +73,7 @@ function WbgtTooltip({ active, payload }: { active?: boolean; payload?: { payloa
   if (!active || !point) return null
   const band = validWbgtBand(point.band) ? WBGT_BANDS[point.band] : null
   return (
-    <div className="rounded-md border border-border bg-white px-2.5 py-2 shadow-md">
+    <div className="rounded-md border border-border bg-card px-2.5 py-2 shadow-md">
       <p className="text-xs font-semibold">{point.label}</p>
       <p className="mt-1 text-xs">WBGT <strong>{formatTemp(point.wbgt)}</strong></p>
       <p className="text-[11px] font-medium" style={{ color: band?.color }}>{band?.label ?? 'Classification unavailable'}</p>

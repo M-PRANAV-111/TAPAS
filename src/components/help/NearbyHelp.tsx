@@ -35,7 +35,7 @@ function ResourceCard({ resource, location, selected, onSelect }: { resource: Sa
   const phone = phoneHref(resource.phone)
   const stale = resource.dataTimestamp && Date.now() - Date.parse(resource.dataTimestamp) > 90 * 24 * 60 * 60 * 1000
   return (
-    <li data-resource-id={resource.id} className={cn('min-w-0 rounded-lg border bg-white p-3', selected ? 'border-primary ring-1 ring-primary' : 'border-border')}>
+    <li data-resource-id={resource.id} className={cn('min-w-0 rounded-lg border bg-card p-3', selected ? 'border-primary ring-1 ring-primary' : 'border-border')}>
       <div className="flex items-start gap-2">
         <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
         <div className="min-w-0 flex-1">
@@ -47,7 +47,7 @@ function ResourceCard({ resource, location, selected, onSelect }: { resource: Sa
           {resource.emergencyDepartment ? <p className="mt-1 text-xs tapas-subtext">Emergency service listed by source; confirm availability.</p> : null}
           {resource.accessibility ? <p className="mt-1 text-xs tapas-subtext">Source accessibility tag: {resource.accessibility}</p> : null}
           {resource.verifiedAt ? <p className="mt-1 text-xs tapas-subtext">Source verification date: {resource.verifiedAt.slice(0, 10)}</p> : <p className="mt-1 text-xs tapas-subtext">Field verification date unavailable</p>}
-          {resource.dataTimestamp ? <p className={cn('mt-1 text-xs', stale ? 'text-amber-800' : 'tapas-subtext')}>Record updated {resource.dataTimestamp.slice(0, 10)}{stale ? ' · older than 90 days' : ''}</p> : null}
+          {resource.dataTimestamp ? <p className={cn('mt-1 text-xs', stale ? 'text-amber-400' : 'tapas-subtext')}>Record updated {resource.dataTimestamp.slice(0, 10)}{stale ? ' · older than 90 days' : ''}</p> : null}
           <a className="mt-1 inline-flex min-h-11 items-center gap-1 text-xs underline underline-offset-2" href={resource.sourceUrl} target="_blank" rel="noopener noreferrer">{resource.source}<ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" /></a>
           <div className="mt-1 flex flex-wrap gap-2">
             <Button variant="outline" className="min-h-11" onClick={() => onSelect?.(resource)}><MapPin aria-hidden="true" /> Show on map</Button>
@@ -70,7 +70,7 @@ export function NearbyHelp({ location, resources = [], selectedResourceId, onRes
   // Keep a map-selected card visible even when a dense area has more than 20 records.
   const displayed = selected && !filtered.slice(0, 20).some(resource => resource.id === selected.id) ? [selected, ...filtered.slice(0, 19)] : filtered.slice(0, 20)
   return (
-    <section aria-labelledby="nearby-heading" className="min-w-0 rounded-lg border border-border bg-white p-3 sm:p-4" id="nearby-help">
+    <section aria-labelledby="nearby-heading" className="min-w-0 rounded-lg border border-border bg-card p-3 sm:p-4" id="nearby-help">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0"><h2 id="nearby-heading" className="text-base font-semibold">Nearby help</h2><p className="mt-1 text-xs tapas-subtext">Mapped places within {RESOURCE_RADIUS_KM} km of {location?.name ?? 'your selected place'}. Coverage may be incomplete.</p></div>
         {nearest && !isLoading ? <Button variant="outline" className="min-h-11" onClick={() => onResourceSelect?.(nearest)}><Navigation aria-hidden="true" />Nearest {category === 'all' ? 'mapped help' : RESOURCE_LABELS[category].toLowerCase()}</Button> : null}
@@ -81,7 +81,7 @@ export function NearbyHelp({ location, resources = [], selectedResourceId, onRes
       <p className="mb-3 text-xs tapas-subtext">Proximity uses the selected point, not road distance or travel time. A map listing does not certify a safe, open or free facility. Directions open an external map with the selected coordinates.</p>
       <div role="status" aria-live="polite"><DataProvenance status={isError && status === 'live' ? 'cached' : status ?? 'unavailable'} source="OpenStreetMap via Overpass" timestamp={originalAt ?? fetchedAt} note={note ?? 'Source map records; retrieval is not field verification.'} />
         {!online && fetchedAt ? <p className="mb-2 text-xs font-semibold">Offline · saved resource listings may be stale.</p> : null}
-        {!location ? <p className="text-sm tapas-subtext">Choose a location to find nearby medical help and drinking-water points.</p> : isLoading ? <p className="text-sm tapas-subtext">Finding mapped help near {location.name}…</p> : isError ? <p className="text-sm text-amber-800">{error?.message ?? 'Nearby help is unavailable. Check your connection and try again.'}</p> : filtered.length === 0 ? <p className="rounded-md bg-secondary p-3 text-sm">{['cooling', 'shelter', 'misting'].includes(category) ? 'No verified data available for this area.' : `No ${category === 'all' ? 'usable mapped resources' : RESOURCE_LABELS[category].toLowerCase() + ' results'} were returned within ${RESOURCE_RADIUS_KM} km.`} This does not mean no help exists here.</p> : <p className="mb-2 text-xs tapas-subtext">{filtered.length} mapped result{filtered.length === 1 ? '' : 's'}{filtered.length > 20 ? '; showing 20 — use filters or select markers on the map' : ''}. Nearest means nearest among the returned records.</p>}
+        {!location ? <p className="text-sm tapas-subtext">Choose a location to find nearby medical help and drinking-water points.</p> : isLoading ? <p className="text-sm tapas-subtext">Finding mapped help near {location.name}…</p> : isError ? <p className="text-sm text-amber-400">{error?.message ?? 'Nearby help is unavailable. Check your connection and try again.'}</p> : filtered.length === 0 ? <p className="rounded-md bg-secondary p-3 text-sm">{['cooling', 'shelter', 'misting'].includes(category) ? 'No verified data available for this area.' : `No ${category === 'all' ? 'usable mapped resources' : RESOURCE_LABELS[category].toLowerCase() + ' results'} were returned within ${RESOURCE_RADIUS_KM} km.`} This does not mean no help exists here.</p> : <p className="mb-2 text-xs tapas-subtext">{filtered.length} mapped result{filtered.length === 1 ? '' : 's'}{filtered.length > 20 ? '; showing 20 — use filters or select markers on the map' : ''}. Nearest means nearest among the returned records.</p>}
       </div>
       {isError && onRetry ? <Button variant="outline" className="my-2 min-h-11" onClick={onRetry}>Retry nearby help</Button> : null}
       {location && !isLoading && displayed.length > 0 ? <ul className="grid max-h-[42rem] gap-3 overflow-y-auto overscroll-contain sm:grid-cols-2" data-testid="nearby-resources">{displayed.map(resource => <ResourceCard key={resource.id} resource={resource} location={location} selected={resource.id === selectedResourceId} onSelect={onResourceSelect} />)}</ul> : null}

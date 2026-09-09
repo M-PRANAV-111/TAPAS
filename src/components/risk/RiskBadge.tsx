@@ -47,8 +47,8 @@ export function RiskBadge({
         className,
       )}
       style={{
-        backgroundColor: known ? RISK_COLORS[level] : '#E5E7EB',
-        color: known ? RISK_TEXT_COLORS[level] : '#374151',
+        backgroundColor: known ? RISK_COLORS[level] : '#3A2718',
+        color: known ? RISK_TEXT_COLORS[level] : '#C8AD8C',
       }}
     >
       {known ? compact ? `Level ${level}` : `Level ${level} — ${label}` : 'Risk unavailable'}

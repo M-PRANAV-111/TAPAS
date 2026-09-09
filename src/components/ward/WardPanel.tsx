@@ -72,7 +72,7 @@ export function WardPanel({
     <aside
       data-testid="ward-panel"
       aria-label={`Ward detail: ${displayName}`}
-      className={cn('flex h-full flex-col bg-white', className)}
+      className={cn('flex h-full flex-col bg-card', className)}
     >
       <header className="flex items-start justify-between gap-2 border-b border-border p-3">
         <div className="min-w-0">

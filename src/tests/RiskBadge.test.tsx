@@ -17,7 +17,7 @@ describe('RiskBadge', () => {
 
     const badge = screen.getByTestId('risk-badge')
     expect(badge).toHaveTextContent('Level 1 — Low')
-    expect(badge).toHaveStyle({ backgroundColor: '#1E8449' })
+    expect(badge).toHaveStyle({ backgroundColor: '#4A7C59' })
   })
 
   it('renders level 5 in the extreme dark red', () => {
@@ -25,7 +25,7 @@ describe('RiskBadge', () => {
 
     const badge = screen.getByTestId('risk-badge')
     expect(badge).toHaveTextContent('Level 5 — Extreme')
-    expect(badge).toHaveStyle({ backgroundColor: '#641E16' })
+    expect(badge).toHaveStyle({ backgroundColor: '#741E29' })
   })
 
   it.each([1, 2, 3, 4, 5] as RiskLevel[])(
@@ -44,7 +44,7 @@ describe('RiskBadge', () => {
   it('uses dark text on the amber level-2 badge for contrast', () => {
     render(<RiskBadge level={2} />)
 
-    expect(screen.getByTestId('risk-badge')).toHaveStyle({ color: '#1C2833' })
+    expect(screen.getByTestId('risk-badge')).toHaveStyle({ color: '#17120E' })
   })
 
   it('drops the label but keeps the level in compact mode', () => {

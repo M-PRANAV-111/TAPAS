@@ -73,7 +73,7 @@ const ROLE_CARDS = [
 export function Hero() {
   const { selectionQuery } = useLocation()
   return (
-    <section className="relative isolate overflow-hidden bg-[#12181f] px-3 py-16 text-white sm:px-4 sm:py-24">
+    <section className="relative isolate overflow-hidden bg-[var(--bg)] px-3 py-16 text-white sm:px-4 sm:py-24">
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="tapas-blob tapas-blob-1" />
         <div className="tapas-blob tapas-blob-2" />

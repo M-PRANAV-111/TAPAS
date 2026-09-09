@@ -72,7 +72,7 @@ export function RiskRanking({
                     'w-full rounded-md border p-2 text-left transition-colors',
                     selected
                       ? 'border-foreground/40 bg-secondary'
-                      : 'border-border bg-white hover:bg-secondary/60',
+                      : 'border-border bg-card hover:bg-secondary/60',
                   )}
                 >
                   <div className="flex items-start justify-between gap-2">

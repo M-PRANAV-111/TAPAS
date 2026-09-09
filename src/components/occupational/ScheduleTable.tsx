@@ -11,7 +11,7 @@ export function ScheduleTable({ data, state }: {
   const workRest = data?.work_rest
   const validRatio = workRest && validWorkRest(workRest.work_pct, workRest.rest_pct)
   return (
-    <section className="rounded-lg border border-border bg-white p-3 sm:p-4" data-testid="work-schedule">
+    <section className="rounded-lg border border-border bg-card p-3 sm:p-4" data-testid="work-schedule">
       <h2 className="mb-2 text-sm font-semibold">Supplied work schedule</h2>
       {state !== 'ready' || !data ? <p role="status" className="text-sm tapas-subtext">{state === 'loading' ? 'Loading work/rest guidance…' : 'Work/rest guidance unavailable. Missing data does not permit continuous work.'}</p> : (
         <dl className="divide-y divide-border">

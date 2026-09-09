@@ -138,13 +138,13 @@ export function ServiceWorkerRegister() {
   return (
     <aside
       aria-label="App installation and updates"
-      className="no-print border-t border-border bg-white px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3"
+      className="no-print border-t border-border bg-card px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3"
     >
       <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 text-sm">
         {waiting ? (
           <>
             <p className="min-w-0 flex-1">An updated TAPAS app is ready. Your selected location is kept in the page URL.</p>
-            <button type="button" disabled={updating} onClick={update} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-4 py-2 font-semibold text-white disabled:opacity-60">
+            <button type="button" disabled={updating} onClick={update} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-60">
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               {updating ? 'Updating…' : 'Update and reload'}
             </button>
@@ -159,7 +159,7 @@ export function ServiceWorkerRegister() {
               ) : <p>Add TAPAS to this device for quicker access. New data and uncached maps need a connection.</p>}
             </div>
             {installPrompt && (
-              <button type="button" onClick={() => void install()} disabled={installing} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-brand px-4 py-2 font-semibold text-white disabled:opacity-60">
+              <button type="button" onClick={() => void install()} disabled={installing} className="inline-flex min-h-11 items-center gap-2 rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground disabled:opacity-60">
                 <Download className="h-4 w-4" aria-hidden="true" />
                 {installing ? 'Opening install prompt…' : 'Install TAPAS'}
               </button>

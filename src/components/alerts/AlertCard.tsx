@@ -30,7 +30,7 @@ export function AlertCard({ alert, now = Date.now() }: { alert: Alert; now?: num
   return (
     <article
       data-testid="alert-card"
-      className="overflow-hidden rounded-lg border border-border bg-white"
+      className="overflow-hidden rounded-lg border border-border bg-card"
     >
       <header
         className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-2"

@@ -37,7 +37,7 @@ export default function OccupationalPage() {
         <div className="flex flex-wrap items-end gap-3">
           <label className="grid max-w-full gap-1 text-xs font-medium">
             Covered ward
-            <select className="h-11 max-w-full rounded-md border border-border bg-white px-2 text-sm" value={selectedWardId ?? ''} onChange={(event) => selectWard(event.target.value || null)}>
+            <select className="h-11 max-w-full rounded-md border border-border bg-card px-2 text-sm" value={selectedWardId ?? ''} onChange={(event) => selectWard(event.target.value || null)}>
               <option value="">Select a ward with available data</option>
               {selectedWardId && !wards.some((ward) => ward.ward_id === selectedWardId) ? <option value={selectedWardId}>{wardName}</option> : null}
               {wards.map((ward) => <option key={ward.ward_id} value={ward.ward_id}>{ward.ward_name}</option>)}
@@ -45,7 +45,7 @@ export default function OccupationalPage() {
           </label>
           <label className="grid gap-1 text-xs font-medium">
             Forecast date
-            <select className="h-11 rounded-md border border-border bg-white px-2 text-sm" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)}>
+            <select className="h-11 rounded-md border border-border bg-card px-2 text-sm" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)}>
               {(dates.includes(selectedDate) ? dates : [...dates, selectedDate].sort()).map((date) => <option key={date} value={date}>{longDate(date)}</option>)}
             </select>
           </label>
@@ -54,7 +54,7 @@ export default function OccupationalPage() {
         {riskMap.isError ? <p role="status" className="text-xs tapas-subtext">Ward coverage unavailable. Place search remains available.</p> : null}
       </div>
       <div className="print-page space-y-4"><WeatherKpis /><Precautions heatIndex={heatIndexCelsius(reading?.temperature, reading?.humidity)} selectedDate={selectedDate} />
-        <div className="rounded-lg border border-border bg-white p-3 sm:p-4">
+        <div className="rounded-lg border border-border bg-card p-3 sm:p-4">
           <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
             <h2 className="text-sm font-semibold">Hourly WBGT — {wardName || location?.name || 'choose a location'}</h2>
             <span className="text-xs tapas-subtext">{longDate(selectedDate)}</span>

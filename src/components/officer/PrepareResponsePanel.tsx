@@ -124,7 +124,7 @@ export function PrepareResponseTrigger({ wardName, day, facilitiesCount }: Prepa
               </p>
             </div>
 
-            <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs leading-relaxed">
+            <p className="rounded-md border border-amber-400/30 bg-amber-400/10 p-3 text-xs leading-relaxed text-amber-100">
               This is a demonstration workflow. No real messages are sent. Recipients are seeded demo contacts.
             </p>
 

@@ -42,7 +42,7 @@ export default function AlertsPage() {
       <div className="mb-4 flex flex-wrap items-end gap-3">
         <label className="grid gap-1 text-xs font-medium">
           Risk level
-          <select className="h-11 rounded-md border border-border bg-white px-2 text-sm" value={level} onChange={(event) => setLevel(event.target.value)}>
+          <select className="h-11 rounded-md border border-border bg-card px-2 text-sm" value={level} onChange={(event) => setLevel(event.target.value)}>
             <option value="all">All levels</option>
             <option value="5">Level 5 — Extreme</option><option value="4">Level 4 — Very High</option>
             <option value="3">Level 3 — High</option><option value="2">Level 2 — Moderate</option><option value="1">Level 1 — Low</option>
@@ -50,7 +50,7 @@ export default function AlertsPage() {
         </label>
         <label className="grid max-w-full gap-1 text-xs font-medium">
           Selected date
-          <select className="h-11 max-w-full rounded-md border border-border bg-white px-2 text-sm" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)}>
+          <select className="h-11 max-w-full rounded-md border border-border bg-card px-2 text-sm" value={selectedDate} onChange={(event) => setSelectedDate(event.target.value)}>
             {(dates.includes(selectedDate) ? dates : [...dates, selectedDate].sort()).map((date) => <option value={date} key={date}>{longDate(date)}</option>)}
           </select>
         </label>
@@ -59,7 +59,7 @@ export default function AlertsPage() {
       <DataStatus label="Alerts" provenance={data?.provenance} refreshing={isFetching} error={error} />
       {isPending ? <p role="status" className="text-sm tapas-subtext">Loading alerts…</p> : null}
       {isError ? <p role="status" className="text-sm text-[var(--risk-4)]">{error instanceof Error ? error.message : 'Alert service unavailable.'} This does not mean no warnings exist. Check the official bulletin linked in Government information.</p> : null}
-      {!isPending && !isError && !filtered.length ? <p data-testid="no-alerts" className="rounded-lg border border-border bg-white p-6 text-center text-sm tapas-subtext">{location ? 'No matching messages were returned for this location, date and filter. Missing alerts do not establish safe conditions.' : 'Select a location to check advisories. No scientific alert feed has been requested yet.'}</p> : null}
+      {!isPending && !isError && !filtered.length ? <p data-testid="no-alerts" className="rounded-lg border border-border bg-card p-6 text-center text-sm tapas-subtext">{location ? 'No matching messages were returned for this location, date and filter. Missing alerts do not establish safe conditions.' : 'Select a location to check advisories. No scientific alert feed has been requested yet.'}</p> : null}
       <OfficialHelp location={location} selectedDate={selectedDate} /><div className="space-y-3">{filtered.map((alert) => <AlertCard key={alert.id} alert={alert} now={now} />)}</div>
     </div>
   )
